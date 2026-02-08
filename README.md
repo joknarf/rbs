@@ -18,11 +18,11 @@ start reverse shell serve from local `host` on `remote` (need ssh access to `<re
 ```
 start reverse shell on host to listen on <remote>:
 host$ rbs -r <remote>
-<local> bash -> ssh <remote> -> listen <sock>
+<local> spawn interactive bash -> ssh <remote> -> listen <sock>
 
 connect to <host> shell from <remote>:
 remote$ rbs
-<remote> -> <sock> -> <host> -> bash
+<remote> -> <sock> -> <host> -> interactive bash
 access host shell
 ```
 
