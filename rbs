@@ -72,7 +72,7 @@ rbs_pre() {
   }
   [ "$remote" ] || { $connect_cmd; exit; }
   [ "$passfile" ] && {
-    [ "$passfile" = - ] && { read -s -p "password: " password;echo; } || password=$(cat "$passfile")
+    [ "$passfile" = - ] && { read -s -p "Password: " password;echo; } || password=$(cat "$passfile")
   }
 
   rcommand=""
