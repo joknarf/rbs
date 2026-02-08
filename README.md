@@ -10,7 +10,7 @@ reverse interactive command server over ssh
 
 ## schema
 
-start reverse shell on host (need ssh access to `<remote>`) and connect to shell from `<remote>`:
+start reverse shell on host (need ssh access to `<remote>` from `host`) and connect to shell from `<remote>`:
 
 ```
 host$ rbs -r <remote>
