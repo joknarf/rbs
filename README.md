@@ -23,8 +23,7 @@ reverse interactive command server over ssh
 
 ## example
 
-![rbs](https://github.com/user-attachments/assets/f33b7efa-3fbf-4818-b94c-bde8d4ad1eb5)
-
+![rbs](https://github.com/user-attachments/assets/9ff29d6b-8a42-4fde-b72d-dad7461e6071)
 
 start reverse shell serve from local `host` on `remote` (need ssh access to `<remote>` from `host`) and connect to shell from `<remote>`:
 
