@@ -30,7 +30,7 @@ remote$ rbs
 <remote> -> <sock> -> <host> -> interactive bash
 access host shell
 ```
-add `Include ~/.ssh/rbs` in your ~/.ssh/config to avoid having `rbs` to use -F ~/.ssh/tbs ssh option
+add `Include ~/.ssh/rbs` in your ~/.ssh/config to avoid having `rbs` to use `-F ~/.ssh/rbs` ssh option
 
 process view on `host` exposing the shell:
 ```
