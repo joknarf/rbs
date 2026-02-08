@@ -35,6 +35,13 @@ process view on `host` exposing the shell:
   └─2674785 (joknarf) [ssh] 20:05 ssh remote
 ```
 
+if force use ssh (-s) for local host:
+```
+► 2676448 (joknarf) [bash] 20:09 bash
+  ├─2676453 (joknarf) [ssh] 20:09 ssh local
+  └─2676454 (joknarf) [ssh] 20:09 ssh remote
+```
+
 ## usage
 
 * Bypass any totally useless/buggy security tools protection auditing your tty, like "CyberFart" CAC, that is wrongly injecting bad Ctl-C to your tty, as they are totally unable to parse the command you are executing.
