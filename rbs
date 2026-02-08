@@ -55,7 +55,7 @@ rbs_pre() {
   done
   [ "$sock" ] || sock="/tmp/rbs.$ttysrvname.sock"
   [ ! "$remote" ] && [ ! -e "$sock" ] && port="${port:-4444}"
-  [ "$ttyserver" != localhost ] && use_ssh=true && port="${port:-4444}"
+  [ "$ttyserver" != localhost ] && use_ssh=true
   [ "$port" ] && {
     connect_cmd="socat STDIO,raw,echo=0 TCP:localhost:$port"
     listen_cmd="socat - TCP-LISTEN:$port,bind=127.0.0.1,reuseaddr"
