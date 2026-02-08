@@ -3,9 +3,10 @@ reverse interactive command server over ssh
 
 ## features
 
-* reverse command/shell using ssh frm local/remote server to remote server
+* reverse command/shell using ssh from local/remote server to remote server
 * no ssh tunnel needed (no TCPForwarding/Getway needed)
-* optionnal password protected connection
+* just need ssh access to remote to serve a local shell/command on it
+* optionnal password protected connection (using gpg)
 
 ## schema
 
