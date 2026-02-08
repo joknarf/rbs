@@ -7,6 +7,7 @@ reverse interactive command server over ssh
 * no ssh tunnel needed (no TCPForwarding/Getway needed)
 * just need ssh access to remote to serve a local shell/command on it
 * optionnal password protected connection (using gpg)
+* serve interactive shell between 2 servers using a middle server
 
 ## schema
 
