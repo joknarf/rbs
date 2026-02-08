@@ -17,7 +17,7 @@ reverse interactive command server over ssh
 * socat on `remote` server
 * gpg (optionnal password authent)
 
-## schema
+## example
 
 start reverse shell serve from local `host` on `remote` (need ssh access to `<remote>` from `host`) and connect to shell from `<remote>`:
 
