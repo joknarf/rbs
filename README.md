@@ -35,7 +35,7 @@ process view on `host` exposing the shell:
   └─2674785 (joknarf) [ssh] 20:05 ssh remote
 ```
 
-if force use ssh (-s) for local host:
+if force use ssh (-s) for local host (uses `ssh local` instead of `script` command):
 ```
 ► 2676448 (joknarf) [bash] 20:09 bash
   ├─2676453 (joknarf) [ssh] 20:09 ssh local
