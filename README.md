@@ -1,2 +1,8 @@
 # rbs
 reverse interactive command server over ssh
+
+## usage
+
+* Bypass any totally useless/buggy security tools protection auditing your tty, like CyberArk CAC, that is wrongly injecting bad Ctl-C to your tty, as they are totally unable to parse the command you are executing.
+* Foolish securuty guys are just preventing you to work properly and don't understand how they are themselces dangerous for system security (breaks/truncates files during vim save/breaks interactive batch dugin run...).
+* advice: Never use in this in your enterperise
