@@ -5,7 +5,7 @@ reverse interactive command server over ssh
 
 * reverse command/shell using ssh from local/remote server to another remote server
 * no ssh tunnel needed (no TCPForwarding/Getway needed)
-* just need ssh access to remote to serve a local shell/command on it
+* just need ssh access to remote to serve a local shell/command on it, using simple fifo to communicate
 * no listennig process on shell served server, only use standard ssh connection
 * optionnal password protected connection (using gpg)
 * serve interactive shell between 2 servers using a middle server
@@ -16,10 +16,13 @@ reverse interactive command server over ssh
 start reverse shell serve from local `host` on `remote` (need ssh access to `<remote>` from `host`) and connect to shell from `<remote>`:
 
 ```
+start reverse shell on host to listen on <remote>:
 host$ rbs -r <remote>
-<local> bash -> ssh <remote>
+<local> bash -> ssh <remote> -> listen <sock>
+
 connect to <host> shell from <remote>:
 remote$ rbs
+<remote> -> <sock> -> <host> -> bash
 access host shell
 ```
 
