@@ -73,11 +73,11 @@ rbs_pre() {
     token=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
     gpg64=$(gpg -c --batch --cipher-algo AES256 --passphrase-file <(printf %s $password) <<<"$token" |base64 -w0)
     rcommand=$(cat - <<EOF
-read -s -p "Password: " p;base64 -d <<<$gpg64 | gpg -d --batch --passphrase-file <(printf %s "\$p") >/dev/null 2>&1 || exit 1; 
+read -s -p "Password: " p;base64 -d <<<$gpg64 | gpg -d --batch --passphrase-file <(printf %s "\$p") >/dev/null 2>&1 || exit 1
 EOF
     )
-  } 
-  rcommand="$rcommand cd; type resize >/dev/null 2>&1 && . <(resize 2>/dev/null); exec $command"
+  } || rcommand="read -s -n 1 -p 'Press any key to continue...'"
+  rcommand="$rcommand; echo; cd; type resize >/dev/null 2>&1 && . <(resize 2>/dev/null); exec $command"
   echo "$rcommand" >~/.ssh/.bashrc
   cat - >~/.ssh/rbs <<EOF
 Host $remotename
