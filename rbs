@@ -10,7 +10,7 @@
 
 usage() {
   printf '%s' 'usage: 
-  server: rbs -r <remote> [-p <port>|-S <sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-c config] [-C <command>] [-a] [-s]
+  server: rbs -r <remote> [-p <port>|-S <sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-H <bind>] [-c config] [-C <command>] [-a] [-s]
   client: rbs [-p port]
 
   - remote : ip/host to serve shell
@@ -20,6 +20,7 @@ usage() {
   - ttyserver: host to serve shell (localhost)
   - ttysrvname: localhost ssh host (local)
   - remotename: remote ssh host (remote)
+  - bind: bind/connect address (localhost)
   - command: shell command to execute on local and serve (bash -l)
   - -a: always serve (relaunch on disconnect)
   - -s: use ssh instead of script for local shell
@@ -37,7 +38,7 @@ rbs_pre() {
   use_ssh=false
   command="bash -l"
   [ -f ~/.rbs.conf ] && . ~/.rbs.conf
-  while getopts 'hsac:r:R:p:P:S:C:t:T:' opt;do
+  while getopts 'hsac:r:R:p:P:S:C:t:T:H:' opt;do
     case "$opt" in
       c) . "$OPTARG";;
       C) command="$OPTARG";;
@@ -50,15 +51,18 @@ rbs_pre() {
       S) sock="$OPTARG";;
       a) always=true;;
       s) use_ssh=true;;
+      H) bind="$OPTARG";;
       h|\?) usage;;
     esac
   done
-  [ "$sock" ] || sock="/tmp/rbs.$ttysrvname.sock"
+  [ "$bind" ] && port="${port:-4444}"
+  bind="${bind:-localhost}"
+  sock=${sock:-"/tmp/rbs.$ttysrvname.sock"}
   [ ! "$remote" ] && [ ! -e "$sock" ] && port="${port:-4444}"
   [ "$ttyserver" != localhost ] && use_ssh=true
   [ "$port" ] && {
-    connect_cmd="socat STDIO,raw,echo=0 TCP:localhost:$port"
-    listen_cmd="socat - TCP-LISTEN:$port,bind=127.0.0.1,reuseaddr"
+    connect_cmd="socat STDIO,raw,echo=0 TCP:$bind:$port"
+    listen_cmd="socat - TCP-LISTEN:$port,bind=$bind,reuseaddr"
     clean_cmd=""
   } || {
     connect_cmd="socat STDIO,raw,echo=0 UNIX-CONNECT:$sock"
