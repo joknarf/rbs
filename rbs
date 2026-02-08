@@ -78,7 +78,7 @@ rbs_pre() {
 read -s -p "Password: " p;base64 -d <<<$gpg64 | gpg -d --batch --passphrase-file <(printf %s "\$p") >/dev/null 2>&1 || exit 1
 EOF
     )
-  } || rcommand="read -s -n 1 -p 'Press any key to continue...'"
+  } || rcommand='read -s -n 1 -p "Press any key to continue..."'
   rcommand="$rcommand; echo; cd; type resize >/dev/null 2>&1 && . <(resize 2>/dev/null); exec $command"
   echo "$rcommand" >~/.ssh/.bashrc
   cat - >~/.ssh/rbs <<EOF
