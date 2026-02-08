@@ -11,6 +11,11 @@ reverse interactive command server over ssh
 * serve interactive shell between 2 servers using a middle server
 * caveeat: automatic resize of tty size by SIGWINCH signal won't occur in session (need to use for example xterm /bin/resize)
 
+## prerequites
+
+* socat on `remote` server
+* gpg (optionnal password authent)
+
 ## schema
 
 start reverse shell serve from local `host` on `remote` (need ssh access to `<remote>` from `host`) and connect to shell from `<remote>`:
