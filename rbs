@@ -53,15 +53,17 @@ rbs_pre() {
       h|\?) usage;;
     esac
   done
+  [ "$sock" ] || sock="/tmp/rbs.$ttysrvname.sock"
   [ ! "$remote" ] && [ ! -e "$sock" ] && port="${port:-4444}"
   [ "$ttyserver" != localhost ] && use_ssh=true && port="${port:-4444}"
-  [ "$sock" ] || sock="/tmp/rbs.$remotename.sock"
   [ "$port" ] && {
     connect_cmd="socat STDIO,raw,echo=0 TCP:localhost:$port"
     listen_cmd="socat - TCP-LISTEN:$port,bind=127.0.0.1,reuseaddr"
+    clean_cmd=""
   } || {
     connect_cmd="socat STDIO,raw,echo=0 UNIX-CONNECT:$sock"
     listen_cmd="socat - UNIX-LISTEN:$sock,mode=600"
+    clean_cmd="rm -f $sock;"
   }
   [ "$remote" ] || { $connect_cmd; exit; }
   [ "$passfile" ] && {
@@ -83,7 +85,7 @@ EOF
 Host $remotename
   Hostname $remote
   RequestTTY no
-  RemoteCommand pkill -U \$UID -f "^$listen_cmd"; sleep 1;exec $listen_cmd
+  RemoteCommand $clean_cmd pkill -U \$UID -f "^$listen_cmd"; sleep 1;exec $listen_cmd
 
 Host $ttysrvname
   Hostname $ttyserver
