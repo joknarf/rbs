@@ -1,0 +1,131 @@
+#!/bin/bash
+# tty forwarder/relay over ssh
+# serves an interactive shell/command on a remote host using ssh
+# connnect to it from remote host
+# example:
+#   serve a shell on host to remote: rbs -r <remote> 
+#   connect to host from remote: rbs
+#
+# Author: joknarf
+
+usage() {
+  printf '%s' 'usage: 
+  server: rbs -r <remote> [-p <port>|-S <sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-c config] [-C <command>] [-a] [-s]
+  client: rbs [-p port]
+
+  - remote : ip/host to serve shell
+  - sock : unix socket file to listen/connect on remote (/tmp/rbs.<remotename>.sock)
+  - port : port to listen on remote (4444)
+  - passfile: file containing password or '-' to enter interactively
+  - ttyserver: host to serve shell (localhost)
+  - ttysrvname: localhost ssh host (local)
+  - remotename: remote ssh host (remote)
+  - command: shell command to execute on local and serve (bash -l)
+  - -a: always serve (relaunch on disconnect)
+  - -s: use ssh instead of script for local shell
+  '
+  exit 0
+}
+
+rbs_pre() {
+  port=""
+  password="$RB_PASS"
+  ttyserver=localhost
+  ttysrvname=local
+  remotename=remote
+  always=false
+  use_ssh=false
+  command="bash -l"
+  [ -f ~/.rbs.conf ] && . ~/.rbs.conf
+  while getopts 'hsac:r:R:p:P:S:C:t:T:' opt;do
+    case "$opt" in
+      c) . "$OPTARG";;
+      C) command="$OPTARG";;
+      r) remote="$OPTARG";;
+      t) ttyserver="$OPTARG";;
+      p) port="$OPTARG";;
+      P) passfile="$OPTARG";;
+      T) ttysrvname="$OPTARG";;
+      R) remotename="$OPTARG";;
+      S) sock="$OPTARG";;
+      a) always=true;;
+      s) use_ssh=true;;
+      h|\?) usage;;
+    esac
+  done
+  [ ! "$remote" ] && [ ! -e "$sock" ] && port="${port:-4444}"
+  [ "$ttyserver" != localhost ] && use_ssh=true && port="${port:-4444}"
+  [ "$sock" ] || sock="/tmp/rbs.$remotename.sock"
+  [ "$port" ] && {
+    connect_cmd="socat STDIO,raw,echo=0 TCP:localhost:$port"
+    listen_cmd="socat - TCP-LISTEN:$port,bind=127.0.0.1,reuseaddr"
+  } || {
+    connect_cmd="socat STDIO,raw,echo=0 UNIX-CONNECT:$sock"
+    listen_cmd="socat - UNIX-LISTEN:$sock,mode=600"
+  }
+  [ "$remote" ] || { $connect_cmd; exit; }
+  [ "$passfile" ] && {
+    [ "$passfile" = - ] && { read -s -p "password: " password;echo; } || password=$(cat "$passfile")
+  }
+
+  rcommand=""
+  [ "$password" ] && {
+    token=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
+    gpg64=$(gpg -c --batch --cipher-algo AES256 --passphrase-file <(printf %s $password) <<<"$token" |base64 -w0)
+    rcommand=$(cat - <<EOF
+read -s -p "Password: " p;base64 -d <<<$gpg64 | gpg -d --batch --passphrase-file <(printf %s "\$p") >/dev/null 2>&1 || exit 1; 
+EOF
+    )
+  } 
+  rcommand="$rcommand cd; type resize >/dev/null 2>&1 && . <(resize 2>/dev/null); exec $command"
+  echo "$rcommand" >~/.ssh/.bashrc
+  cat - >~/.ssh/rbs <<EOF
+Host $remotename
+  Hostname $remote
+  RequestTTY no
+  RemoteCommand pkill -U \$UID -f "^$listen_cmd"; sleep 1;exec $listen_cmd
+
+Host $ttysrvname
+  Hostname $ttyserver
+  RequestTTY force
+  RemoteCommand exec bash --rcfile <(printf %%s '${rcommand//%/%%}')
+EOF
+
+}
+[ "$_rbs_post" ] || {
+  rbs_pre "$@"
+  export remotename ttysrvname always use_ssh
+  port="${port:-$sock}"
+  printf '%s\n' "         __        " "   _____/ /_  _____" "  / ___/ __ \/ ___/" " / /  / /_/ (__  ) " "/_/  /_.___/____/  " ""
+  echo "$ttyserver($ttysrvname):$command -> $remote($remotename):$port"
+  _rbs_post=1 exec bash <$0
+}
+fifo="$(mktemp -u -t .XXXXXXXXXXX)"
+(umask 0077;mkfifo $fifo) || exit 1
+trap "rm -f $fifo ~/.ssh/.bashrc;> ~/.ssh/rbs" EXIT
+cd ~/.ssh
+grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config && ssh_conf='' || ssh_conf='-F rbs'
+
+serve() {
+  #  script -q -f -c "$localcmd" /dev/null <$fifo |ssh $remotename $ssh_conf >$fifo
+  # use coproc to kill $ttyserver shell/ssh on remote disconnect
+  $use_ssh && coproc PROD { exec ssh $ttysrvname $ssh_conf <$fifo; } || \
+              coproc PROD { exec script -qfc ". .bashrc" /dev/null <$fifo; }
+  ssh $remotename $ssh_conf >$fifo <&"${PROD[0]}"
+  kill "$PROD_PID" 2>/dev/null
+  wait
+}
+
+serve_always() {
+  while true;do
+    serve
+    sleep 5 & wait
+  done
+}
+
+$always && {
+  trap "trap - INT TERM;kill 0" INT TERM
+  serve_always
+  exit
+}
+serve
