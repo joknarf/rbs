@@ -9,6 +9,7 @@ reverse interactive command server over ssh
 * no listennig process on shell served server, only use standard ssh connection
 * optionnal password protected connection (using gpg)
 * serve interactive shell between 2 servers using a middle server
+* use unix socket or ip port to serve
 * caveeat: automatic resize of tty size by SIGWINCH signal won't occur in session (need to use for example xterm `/bin/resize`)
 
 ## prerequites
