@@ -60,4 +60,4 @@ if force use ssh (-s) for local host (uses `ssh local` instead of `script` comma
 * Bypass any totally useless/buggy security tools protection auditing your tty, like "CyberFart" CAC, that is wrongly injecting bad Ctl-C to your tty, as they are totally unable to parse the command you are executing.
 * Foolish security guys are just preventing you to work properly and don't understand how they are themselves dangerous for system security (breaks/truncates files during vim save/breaks interactive batch during run/scramble tmux sessions...).
 * rbs allow you to have a full functionnal interactive session to a corrupted server by a stupid security tool, skipping all auditing/tty survey, this is a POC, not to be used in real life (even if rbs stays really discrete, and won't be detected).
-* Advice: Never use it in your enterprise
+* Advice: Never use it in your enterprise to bypass security
