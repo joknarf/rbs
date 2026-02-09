@@ -97,19 +97,24 @@ EOF
   done
   [ "$bind" ] && port="${port:-4444}"
   bind="${bind:-localhost}"
-  sock=${sock:-"/tmp/rbs.$ttysrvname.sock"}
-  [ ! "$remote" ] && [ ! -e "$sock" ] && port="${port:-4444}"
+  sockfile=${sock:-"/tmp/.rbs.$USER.$ttysrvname.sock"}
+  sock=${sock:-"/tmp/.rbs.\$USER.$ttysrvname.sock"}
+  [ ! "$remote" ] && [ ! -e "$sockfile" ] && port="${port:-4444}"
   [ "$ttyserver" != localhost ] && use_ssh=true
   [ "$port" ] && {
     connect_cmd="socat STDIO,raw,echo=0 TCP:$bind:$port"
     listen_cmd="socat - TCP-LISTEN:$port,bind=$bind,reuseaddr"
     clean_cmd=""
   } || {
-    connect_cmd="socat STDIO,raw,echo=0 UNIX-CONNECT:$sock"
+    connect_cmd="socat STDIO,raw,echo=0 UNIX-CONNECT:$sockfile"
     listen_cmd="socat - UNIX-LISTEN:$sock,mode=600"
     clean_cmd="rm -f $sock;"
   }
-  [ "$remote" ] || { $connect_cmd; exit; }
+  [ "$remote" ] || {
+    printf '%s\n' "Connect: ${connect_cmd##* }"
+    $connect_cmd
+    exit
+  }
   [ "$passfile" ] && {
     [ "$passfile" = - ] && { read -s -p "Password: " password;echo; } || password=$(cat "$passfile")
   }
@@ -152,7 +157,8 @@ cd ~/.ssh
 grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config && ssh_conf='' || ssh_conf='-F rbs'
 
 serve() {
-  #  script -q -f -c "$localcmd" /dev/null <$fifo |ssh $remotename $ssh_conf >$fifo
+  #  script -q -f -c "exec bash --rcfile .bashrc" /dev/null <$fifo |ssh $remotename $ssh_conf >$fifo
+  #  ssh $ttysrvname $ssh_conf <$fifo | ssh $remotename $ssh_conf >$fifo
   # use coproc to kill $ttyserver shell/ssh on remote disconnect
   $use_ssh && coproc PROD { exec ssh $ttysrvname $ssh_conf <$fifo; } || \
               coproc PROD { exec script -qfc "exec bash --rcfile .bashrc" /dev/null <$fifo; }
