@@ -102,11 +102,11 @@ EOF
   [ ! "$remote" ] && [ ! -e "$sockfile" ] && port="${port:-4444}"
   [ "$ttyserver" != localhost ] && use_ssh=true
   [ "$port" ] && {
-    connect_cmd="socat STDIO,raw,echo=0 TCP:$bind:$port"
+    connect_cmd="exec socat STDIO,raw,echo=0 TCP:$bind:$port"
     listen_cmd="socat - TCP-LISTEN:$port,bind=$bind,reuseaddr"
     clean_cmd=""
   } || {
-    connect_cmd="socat STDIO,raw,echo=0 UNIX-CONNECT:$sockfile"
+    connect_cmd="exec socat STDIO,raw,echo=0 UNIX-CONNECT:$sockfile"
     listen_cmd="socat - UNIX-LISTEN:$sock,mode=600"
     clean_cmd="rm -f $sock;"
   }
@@ -150,18 +150,24 @@ EOF
   echo "$ttyserver($ttysrvname):$command -> $remote($remotename):$port"
   _rbs_post=1 exec bash <$0
 }
-fifo="$(mktemp -u -t .XXXXXXXXXXX)"
-(umask 0077;mkfifo $fifo) || exit 1
-trap "rm -f $fifo ~/.ssh/.bashrc;> ~/.ssh/rbs" EXIT
-cd ~/.ssh
+
 grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config && ssh_conf='' || ssh_conf='-F rbs'
+cd ~/.ssh
+
+fifo="$(mktemp -u -t .XXXXXXXXXXX)"
+trap "rm -f $fifo ~/.ssh/.bashrc;> ~/.ssh/rbs" EXIT
 
 serve() {
   #  script -q -f -c "exec bash --rcfile .bashrc" /dev/null <$fifo |ssh $remotename $ssh_conf >$fifo
   #  ssh $ttysrvname $ssh_conf <$fifo | ssh $remotename $ssh_conf >$fifo
   # use coproc to kill $ttyserver shell/ssh on remote disconnect
-  $use_ssh && coproc PROD { exec ssh $ttysrvname $ssh_conf <$fifo; } || \
-              coproc PROD { exec script -qfc "exec bash --rcfile .bashrc" /dev/null <$fifo; }
+  (umask 0077;mkfifo $fifo) || exit 1
+  (
+    sleep 0.5
+    rm -f $fifo
+  ) &
+  $use_ssh && coproc PROD { exec ssh $ttysrvname $ssh_conf <$fifo; } \
+            || coproc PROD { exec script -qfc "exec bash --rcfile .bashrc" /dev/null <$fifo; }
   ssh $remotename $ssh_conf >$fifo <&"${PROD[0]}"
   kill "$PROD_PID" 2>/dev/null
   wait
@@ -179,4 +185,5 @@ $always && {
   serve_always
   exit
 }
-serve
+
+serve 
