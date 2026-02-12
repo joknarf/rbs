@@ -15,7 +15,7 @@ usage() {
 
   -r remote     : ip/host to serve shell/command (optionally prefixed with user@)
   -t ttyserver  : host to expose shell/command (localhost) (optionally prefixed with user@)
-  -S sock       : unix socket file to listen/connect on remote (/tmp/rbs.<uid>.<ttysrvname>.sock)
+  -S sock       : unix socket file to listen/connect on remote (/tmp/.rbs.<uid>.<ttysrvname>.sock)
   -P passfile   : file containing password or '-' to enter interactively
   -T ttysrvname : ssh Host alias to connect to ttyserver (local)
   -R remotename : ssh Host alias to connect to remote (remote)
