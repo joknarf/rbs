@@ -20,7 +20,8 @@ reverse interactive command server over ssh
 
 * socat on `remote` server
 * gpg (optionnal password authent)
-
+* xterm resize (optional to have tty resized to your terminal size)
+  
 ## example
 
 ![rbs](https://github.com/user-attachments/assets/9ff29d6b-8a42-4fde-b72d-dad7461e6071)
