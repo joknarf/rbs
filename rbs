@@ -10,22 +10,24 @@
 
 usage() {
   printf '%s' 'usage: 
-  server: rbs -r <remote> [-p <port>|-S <sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-H <bind>] [-c config] [-C <command>] [-a] [-s]
-  client: rbs [-p port]
+  server: rbs -r <remote> [-p <port>|-S <sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-b <bind>] [-c config] [-C <command>] [-a] [-s]
+  client: rbs [-p port|-S <sock>] [-T <ttysrname>]
 
-  -r remote     : ip/host to serve shell
-  -S sock       : unix socket file to listen/connect on remote (/tmp/rbs.<remotename>.sock)
-  -p port       : port to listen on remote (4444)
+  -r remote     : ip/host to serve shell/command (optionally prefixed with user@)
+  -t ttyserver  : host to expose shell/command (localhost) (optionally prefixed with user@)
+  -S sock       : unix socket file to listen/connect on remote (/tmp/rbs.<uid>.<ttysrvname>.sock)
   -P passfile   : file containing password or '-' to enter interactively
-  -t ttyserver  : host to serve shell (localhost)
-  -T ttysrvname : localhost ssh host (local)
-  -R remotename : remote ssh host (remote)
-  -H bind       : bind/connect address (localhost)
+  -T ttysrvname : ssh Host alias to connect to ttyserver (local)
+  -R remotename : ssh Host alias to connect to remote (remote)
+  -p port       : port to listen on remote (4444) instead of unix socket
+  -b bind       : bind/connect address on remote(localhost)
   -C command    : shell command to execute on local and serve (bash -l)
   -c config     : config file to load (~/.rbs.conf)
   -a            : always serve (relaunch on disconnect)
-  -s            : use ssh instead of script for local shell
-  '
+  -s            : use ssh instead of script command to spawn shell/command when localhost
+
+in your ~/.ssh/config add Include ~/.ssh/rbs (or ssh will be run with -F ~/.ssh/rbs)
+'
   exit 0
 }
 
@@ -78,7 +80,7 @@ EOF
   use_ssh=false
   command="bash -l"
   [ -f ~/.rbs.conf ] && . ~/.rbs.conf
-  while getopts 'hsac:r:R:p:P:S:C:t:T:H:' opt;do
+  while getopts 'hsac:r:R:p:P:S:C:t:T:b:' opt;do
     case "$opt" in
       c) . "$OPTARG";;
       C) command="$OPTARG";;
@@ -91,24 +93,31 @@ EOF
       S) sock="$OPTARG";;
       a) always=true;;
       s) use_ssh=true;;
-      H) bind="$OPTARG";;
+      b) bind="$OPTARG";;
       h|\?) usage;;
     esac
   done
   [ "$bind" ] && port="${port:-4444}"
   bind="${bind:-localhost}"
-  sockfile=${sock:-"/tmp/.rbs.$USER.$ttysrvname.sock"}
-  sock=${sock:-"/tmp/.rbs.\$USER.$ttysrvname.sock"}
+  : ${UID:=$(id -u)}
+  sockfile=${sock:-"/tmp/.rbs.$UID.$ttysrvname.sock"}
+  sock=${sock:-"/tmp/.rbs.\$UID.$ttysrvname.sock"}
   [ ! "$remote" ] && [ ! -e "$sockfile" ] && port="${port:-4444}"
+  [[ $remote = *@* ]] && user="User ${remote%@*}" || user=""
+  remote=${remote##*@}
+  ttyuser=""
+  tuser="$USER"
+  [[ $ttyserver = *@* ]] && tuser=${ttyserver%@*} && ttyuser="User $tuser"
+  ttyserver=${ttyserver##*@}
   [ "$ttyserver" != localhost ] && use_ssh=true
+  pre_cmd=": \${UID:=\$(id -u)};echo \"$tuser@$ttyserver[$ttysrvname]:$command -> \$USER@$remote[$remotename]:${port:-$sock}\" >&2;"
   [ "$port" ] && {
     connect_cmd="exec socat STDIO,raw,echo=0 TCP:$bind:$port"
     listen_cmd="socat - TCP-LISTEN:$port,bind=$bind,reuseaddr"
-    clean_cmd=""
   } || {
     connect_cmd="exec socat STDIO,raw,echo=0 UNIX-CONNECT:$sockfile"
-    listen_cmd="socat - UNIX-LISTEN:$sock,mode=600"
-    clean_cmd="rm -f $sock;"
+    listen_cmd="socat - UNIX-LISTEN:${sock##*/},mode=600"
+    pre_cmd+="cd ${sock%/*};rm -f $sock;"
   }
   [ "$remote" ] || {
     printf '%s\n' "Connect: ${connect_cmd##* }"
@@ -119,7 +128,6 @@ EOF
     [ "$passfile" = - ] && { read -s -p "Password: " password;echo; } || password=$(cat "$passfile")
   }
 
-  rcommand=""
   [ "$password" ] && {
     token=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
     gpg64=$(gpg -c --batch --cipher-algo AES256 --passphrase-file <(printf %s $password) <<<"$token" |base64 -w0)
@@ -128,32 +136,32 @@ read -s -p "Password: " p;base64 -d <<<$gpg64 | gpg -d --batch --passphrase-file
 EOF
     )
   } || rcommand='read -s -n 1 -p "Press any key to continue..."'
-  rcommand="$rcommand; echo; cd; type resize >/dev/null 2>&1 && . <(resize 2>/dev/null); RBS=true exec $command"
-  echo "$rcommand" >~/.ssh/.bashrc
+  rcommand="$rcommand; echo; cd; type resize >/dev/null 2>&1 && . <(resize 2>/dev/null); rm -f ~/.ssh/.bashrc;RBS=true exec $command"
+  $use_ssh || echo "$rcommand" >~/.ssh/.bashrc
   cat - >~/.ssh/rbs <<EOF
 Host $remotename
   Hostname $remote
   RequestTTY no
-  RemoteCommand $clean_cmd pkill -U \$UID -f "^$listen_cmd"; sleep 1;exec $listen_cmd
+  RemoteCommand $pre_cmd pkill -U \$UID -f "^$listen_cmd"; sleep 1;exec $listen_cmd
+  $user
 
 Host $ttysrvname
   Hostname $ttyserver
   RequestTTY force
   RemoteCommand exec bash --rcfile <(printf %%s '${rcommand//%/%%}')
+  $ttyuser
 EOF
-
 }
 [ "$_rbs_post" ] || {
   rbs_pre "$@"
   export remotename ttysrvname always use_ssh
-  port="${port:-$sock}"
-  echo "$ttyserver($ttysrvname):$command -> $remote($remotename):$port"
   _rbs_post=1 exec bash <$0
 }
 
 grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config && ssh_conf='' || ssh_conf='-F rbs'
 cd ~/.ssh
-
+ssh_config="$(cat rbs)"
+! $use_ssh && bashrc="$(cat .bashrc)" && rm .bashrc || bashrc=""
 fifo="$(mktemp -u -t .XXXXXXXXXXX)"
 trap "rm -f $fifo ~/.ssh/.bashrc;> ~/.ssh/rbs" EXIT
 
@@ -161,12 +169,16 @@ serve() {
   #  script -q -f -c "exec bash --rcfile .bashrc" /dev/null <$fifo |ssh $remotename $ssh_conf >$fifo
   #  ssh $ttysrvname $ssh_conf <$fifo | ssh $remotename $ssh_conf >$fifo
   # use coproc to kill $ttyserver shell/ssh on remote disconnect
+  
+  [ "$bashrc" ] && printf '%s' "$bashrc" >.bashrc
   (umask 0077;mkfifo $fifo) || exit 1
   $use_ssh && coproc PROD { exec ssh $ttysrvname $ssh_conf <$fifo; } \
-            || coproc PROD { exec script -qfc "exec bash --rcfile .bashrc" /dev/null <$fifo; }
+           || coproc PROD { exec script -qfc "exec bash --rcfile .bashrc" /dev/null <$fifo; }
+  printf '%s' "$ssh_config" >rbs
   (
     sleep 0.5
     rm -f $fifo
+    >rbs
   ) &
   ssh $remotename $ssh_conf >$fifo <&"${PROD[0]}"
   kill "$PROD_PID" 2>/dev/null
