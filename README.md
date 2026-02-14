@@ -23,7 +23,7 @@ reverse interactive command server over ssh, and reverse ssh proxy
 * gpg (optionnal password authent)
 * xterm resize (optional to have tty resized to your terminal size)
   
-## example
+## reverse shell/command serve/connect
 
 ![rbs2](https://github.com/user-attachments/assets/54172be2-8c89-4684-8d8e-33af74f1e11e)
 
