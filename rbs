@@ -23,6 +23,7 @@ usage() {
   -b bind       : bind/connect address on remote(localhost)
   -C command    : shell command to execute on local and serve (bash -l)
   -c config     : config file to load (~/.rbs.conf)
+  -x            : reverse ssh proxy (ssh -F ~/.ssh/rbs_proxy on remote to use proxy)
   -a            : always serve (relaunch on disconnect)
   -s            : use ssh instead of script command to spawn shell/command when localhost
 
