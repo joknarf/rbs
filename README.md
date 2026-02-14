@@ -58,7 +58,8 @@ if force use ssh (-s) for local host (uses `ssh local` instead of `script` comma
 
 ## reverse ssh proxy
 
-start a reverse ssh proxy server, use <local> as a proxyjump without connecting to <local> from <remote>:
+start a reverse ssh proxy server:
+`<local>` connects to `<remote>` to initiate unixsocket, then `<remote>` can use `<local>` as proxy without ssh connection to it.
 ```
 local$ rbs -r <remote> -x
 <local> -> <spawn nc on demand to any host> -> ssh <remote> -> listen <sock>
