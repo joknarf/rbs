@@ -62,9 +62,10 @@ start a reverse ssh proxy server, use <local> as a proxyjump without connecting 
 ```
 local$ rbs -r <remote> -x
 <local> -> <spawn nc on demand to any host> -> ssh <remote> -> listen <sock>
-   
+
+# connect ssh to any host from <remote> using proxy on <local> (ssh -> unix socet to <local> -> <anyhost>:22)
 remote$ ssh -F ~/.ssh/rbs_proxy <anyhost>
-remote -> ssh <anyhost> -> proxy command use <sock> -> local spawn nc to <anyhost> -> <anyhost>
+<remote> -> ssh <anyhost> -> proxy command use <sock> to contact <local> -> <local> spawn nc to <anyhost> -> <anyhost>
 ```
 
 
