@@ -79,8 +79,9 @@ EOF
   always=false
   use_ssh=false
   command="bash -l"
+  ssh_proxy=false
   [ -f ~/.rbs.conf ] && . ~/.rbs.conf
-  while getopts 'hsac:r:R:p:P:S:C:t:T:b:' opt;do
+  while getopts 'hsaxc:r:R:p:P:S:C:t:T:b:' opt;do
     case "$opt" in
       c) . "$OPTARG";;
       C) command="$OPTARG";;
@@ -94,6 +95,7 @@ EOF
       a) always=true;;
       s) use_ssh=true;;
       b) bind="$OPTARG";;
+      x) ssh_proxy=true;;
       h|\?) usage;;
     esac
   done
@@ -114,9 +116,11 @@ EOF
   [ "$port" ] && {
     connect_cmd="exec socat STDIO,raw,echo=0 TCP:$bind:$port"
     listen_cmd="socat - TCP-LISTEN:$port,bind=$bind,reuseaddr"
+    proxy_cmd="bash -c '{ echo %h; cat; } |nc localhost $port'"
   } || {
     connect_cmd="exec socat STDIO,raw,echo=0 UNIX-CONNECT:$sockfile"
     listen_cmd="socat - UNIX-LISTEN:${sock##*/},mode=600"
+    proxy_cmd="bash -c '{ echo %h; cat; } |nc -U $sockfile'"
     pre_cmd+="cd ${sock%/*};rm -f $sock;"
   }
   [ "$remote" ] || {
@@ -131,13 +135,22 @@ EOF
   [ "$password" ] && {
     token=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
     gpg64=$(gpg -c --batch --cipher-algo AES256 --passphrase-file <(printf %s $password) <<<"$token" |base64 -w0)
-    rcommand=$(cat - <<EOF
+    tty_cmd=$(cat - <<EOF
 read -s -p "Password: " p;base64 -d <<<$gpg64 | gpg -d --batch --passphrase-file <(printf %s "\$p") >/dev/null 2>&1 || exit 1
 EOF
     )
-  } || rcommand='read -s -n 1 -p "Press any key to continue..."'
-  rcommand="$rcommand; echo; cd; type resize >/dev/null 2>&1 && . <(resize 2>/dev/null); rm -f ~/.ssh/.bashrc;RBS=true exec $command"
-  $use_ssh || echo "$rcommand" >~/.ssh/.bashrc
+  } || tty_cmd='read -s -n 1 -p "Press any key to continue..."'
+  tty_cmd="$tty_cmd; echo; cd; type resize >/dev/null 2>&1 && . <(resize 2>/dev/null); rm -f ~/.ssh/.bashrc;RBS=true exec $command"
+  $ssh_proxy && {
+    command="proxy"
+    pre_cmd+="base64 -d <<<$(base64 -w0 <<EOF
+Host *
+  ProxyCommand $proxy_cmd
+EOF
+) >~/.ssh/rbs_proxy;"
+    tty_cmd=$'read h;echo "Connect to $h">&2;nc $h 22'
+  }
+  $use_ssh || echo "$tty_cmd" >~/.ssh/.bashrc
   cat - >~/.ssh/rbs <<EOF
 Host $remotename
   Hostname $remote
@@ -148,16 +161,16 @@ Host $remotename
 Host $ttysrvname
   Hostname $ttyserver
   RequestTTY force
-  RemoteCommand exec bash --rcfile <(printf %%s '${rcommand//%/%%}')
+  RemoteCommand exec bash --rcfile <(printf %%s '${tty_cmd//%/%%}')
   $ttyuser
+
 EOF
 }
 [ "$_rbs_post" ] || {
   rbs_pre "$@"
-  export remotename ttysrvname always use_ssh
+  export remotename ttysrvname always use_ssh ssh_proxy
   _rbs_post=1 exec bash <$0
 }
-
 grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config && ssh_conf='' || ssh_conf='-F rbs'
 cd ~/.ssh
 ssh_config="$(cat rbs)"
@@ -172,8 +185,13 @@ serve() {
   
   [ "$bashrc" ] && printf '%s' "$bashrc" >.bashrc
   (umask 0077;mkfifo $fifo) || exit 1
-  $use_ssh && coproc PROD { exec ssh $ttysrvname $ssh_conf <$fifo; } \
-           || coproc PROD { exec script -qfc "exec bash --rcfile .bashrc" /dev/null <$fifo; }
+  $ssh_proxy && {
+    $use_ssh && coproc PROD { exec ssh $ttysrvname $ssh_conf <$fifo; } \
+             || coproc PROD { exec bash .bashrc <$fifo; } 
+  } || {
+    $use_ssh && coproc PROD { exec ssh $ttysrvname $ssh_conf <$fifo; } \
+             || coproc PROD { exec script -qfc "exec bash --rcfile .bashrc" /dev/null <$fifo; }
+  }
   printf '%s' "$ssh_config" >rbs
   (
     sleep 0.5
