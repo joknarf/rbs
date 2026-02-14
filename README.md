@@ -3,11 +3,12 @@
 
 
 # rbs
-reverse interactive command server over ssh
+reverse interactive command server over ssh, and reverse ssh proxy
 
 ## features
 
 * reverse command/shell using ssh from local/remote server to another remote server
+* reverse ssh proxy server
 * no ssh tunnel needed (no TCPForwarding/Getway needed)
 * just need ssh access to remote to serve a local shell/command on it, using simple fifo to communicate
 * no listening process on shell served server, only use standard ssh connection
@@ -30,7 +31,7 @@ start reverse shell serve from local `host` on `remote` (need ssh access to `<re
 
 ```
 start reverse shell on host to listen on <remote>:
-host$ rbs -r <remote>
+local$ rbs -r <remote>
 <local> spawn interactive bash -> ssh <remote> -> listen <sock>
 
 connect to <host> shell from <remote>:
@@ -54,6 +55,18 @@ if force use ssh (-s) for local host (uses `ssh local` instead of `script` comma
   ├─2676453 (joknarf) [ssh] 20:09 ssh local
   └─2676454 (joknarf) [ssh] 20:09 ssh remote
 ```
+
+## reverse ssh proxy
+
+start a reverse ssh proxy server, use <local> as a proxyjump without connecting to <local> from <remote>:
+```
+local$ rbs -r <remote> -x
+<local> -> <spawn nc on demand to any host> -> ssh <remote> -> listen <sock>
+   
+remote$ ssh -F ~/.ssh/rbs_proxy <anyhost>
+remote -> ssh <anyhost> -> proxy command use <sock> -> local spawn nc to <anyhost> -> <anyhost>
+```
+
 
 ## usage
 
