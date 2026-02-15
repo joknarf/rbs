@@ -12,18 +12,9 @@ usage() {
   client: rbs [-p port|-S <sock>] [-T <ttysrname>]
 
   -r remote     : ip/host to serve shell/command (optionally prefixed with user@)
-  -t ttyserver  : host to expose shell/command (localhost) (optionally prefixed with user@)
-  -S sock       : unix socket file to listen/connect on remote (/tmp/.rbs.<uid>.<ttysrvname>.sock)
-  -P passfile   : file containing password or '-' to enter interactively
-  -T ttysrvname : ssh Host alias to connect to ttyserver (local)
   -R remotename : ssh Host alias to connect to remote (remote)
-  -p port       : port to listen on remote (4444) instead of unix socket
-  -b bind       : bind/connect address on remote(localhost)
-  -C command    : shell command to execute on local and serve (bash -l)
   -c config     : config file to load (~/.rbs.conf)
-  -x            : reverse ssh proxy (ssh -F ~/.ssh/rbs_proxy on remote to use proxy)
   -a            : always serve (relaunch on disconnect)
-  -s            : use ssh instead of script command to spawn shell/command when localhost
 
 in your ~/.ssh/config add Include ~/.ssh/rbs (or ssh will be run with -F ~/.ssh/rbs)
 '
@@ -69,12 +60,13 @@ OzQ4bSAbWzM5bRtbMzg7NTs4M20gG1szOW0bWzM4OzU7ODNtIBtbMzltG1szODs1OzExOW0gG1sz
 OW0bWzM4OzU7MTE4bSAbWzM5bRtbMzg7NTsxNTRtG1szOW0K
 EOF
 )
+  umask 077
   printf '%s\n' "$logo"
   remotename=remote
   always=false
   command="proxy"
   [ -f ~/.rbs.conf ] && . ~/.rbs.conf
-  while getopts 'hac:r:R:p:' opt;do
+  while getopts 'hac:r:R:' opt;do
     case "$opt" in
       c) . "$OPTARG";;
       r) remote="$OPTARG";;
@@ -120,22 +112,24 @@ EOF
   export remotename remote always 
   _rbs_post=1 exec bash <$0
 }
+umask 077
 grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config && ssh_conf='' || ssh_conf='-F rbs'
 cd ~/.ssh
 ssh_config="$(cat rbs)"
 #trap "rm -f $fifo ~/.ssh/.bashrc;> ~/.ssh/rbs" EXIT
 
 serve() {
-  
-  ssh -n $remotename $ssh_conf |while :;do
-    read h
+  cat - >~/.ssh/rbs <<<"$ssh_config"
+  coproc PROD { exec ssh $remotename $ssh_conf; }
+
+  while read h;do
     [ ! "$h" ] && continue
     h=$(printf '%q' "$h")
     host="${h%.*}"
     typeset -i pid="${h##*.}"
     printf '%s\n' "Connect to $host" >&2
     fifo="$(mktemp -u -t .XXXXXXXXXXX)"
-    (umask 077; mkfifo $fifo)
+    mkfifo $fifo
     cat - <<EOF >~/.ssh/rbs
 Host $host.
   Hostname $remote
@@ -147,8 +141,8 @@ EOF
     sleep 0.5
     rm -f $fifo
     > ~/.ssh/rbs
-  done
-
+  done <&"${PROD[0]}"
+  kill "$PROD_PID" 2>/dev/null
   wait
 }
 
@@ -165,4 +159,4 @@ $always && {
   exit
 }
 
-serve 
+serve
