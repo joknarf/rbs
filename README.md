@@ -69,6 +69,17 @@ remote$ ssh -F ~/.ssh/rbs_proxy <anyhost>
 <remote> -> ssh <anyhost> -> proxy command use <sock> to contact <local> -> <local> spawn nc to <anyhost> -> <anyhost>
 ```
 
+using `rbs` only 1 connection at a time is possible, to have full featured reverse ssh proxy use `rbsprox`
+```
+local$ rbsprox -r <remote>
+<local> -> ssh - <remote> <wait for proxy demand>
+<local> receive demand -> nc <-> ssh remote
+
+# connect ssh to multiple hosts from <remote> using proxy on <local>
+remote$ rbsprox <anyhost>
+<remote> -> ask proxy for <anyhost> -> nc -> <local> -> <anyhost>
+or use ssh -F ~/.ssh/rbs_proxy <anyhost>
+``` 
 
 ## usage
 
