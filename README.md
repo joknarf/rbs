@@ -19,9 +19,11 @@ reverse interactive command server over ssh, and reverse ssh proxy
 
 ## prerequites
 
-* socat on `remote` server
-* gpg (optionnal password authent)
+* `socat` on `remote` server for `rbs`
+* `gpg` (optionnal password authent)
 * xterm resize (optional to have tty resized to your terminal size)
+
+* `nc` on `local` + `remote` for `rbsprox`
   
 ## reverse shell/command serve/connect
 
