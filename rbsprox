@@ -103,7 +103,7 @@ EOF
 Host $remotename
   Hostname $remote
   RequestTTY no
-  RemoteCommand bash <(printf %%s '$pre_cmd rm -f $fifo_prox;umask 077; mkfifo $fifo_prox;tail --pid \$PPID -f $fifo_prox & sleep 1;echo >$fifo_prox;wait')
+  RemoteCommand bash <(printf %%s '$pre_cmd rm -f $fifo_prox;umask 077; mkfifo $fifo_prox;tail --pid \$PPID -f $fifo_prox & echo >$fifo_prox;wait')
   $user
 EOF
 }
