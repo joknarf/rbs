@@ -87,7 +87,16 @@ EOF
   remote=${remote##*@}
   pre_cmd=": \${UID:=\$(id -u)};echo \"$command -> \$USER@$remote[$remotename]\" >&2;cd \${XDG_RUNTIME_DIR:-/tmp};"
   fifo_prox=".rbs.prox.\$UID"
-  proxy_cmd="echo \"Using proxy...\" >&2;cd \${XDG_RUNTIME_DIR:-/tmp};rm -f .rbs.\$$.sock;echo \$1.\$$ >$fifo_prox;while [ ! -S .rbs.\$$.sock ];do sleep 0.1;done;exec nc -U .rbs.\$$.sock"
+  proxy_cmd=$( cat - <<EOF
+cd \${XDG_RUNTIME_DIR:-/tmp}
+[ -p $fifo_prox ] || { echo "Proxy not available" >&2; exit 1; }
+echo "Using proxy..." >&2
+rm -f .rbs.\$$.sock
+echo \$1.\$$ >$fifo_prox
+while [ ! -S .rbs.\$$.sock ];do sleep 0.1;done
+exec nc -U .rbs.\$$.sock
+EOF
+  )
   [ "$remote" ] || {
     printf '%s\n' "Connect: ${connect_cmd##* }"
     $connect_cmd
@@ -99,7 +108,7 @@ Host *
   ProxyCommand bash <(base64 -d <<<$(base64 -w0 <<< "$proxy_cmd")) %h
 EOF
 "
-  pre_cmd+="rm -f $fifo_prox;umask 077; mkfifo $fifo_prox;tail --pid \$PPID -f $fifo_prox & echo >$fifo_prox;wait"
+  pre_cmd+="rm -f $fifo_prox;umask 077; mkfifo $fifo_prox;trap 'rm -f $fifo_prox' EXIT;tail --pid \$PPID -f $fifo_prox & echo >$fifo_prox;wait"
   cat - >~/.ssh/rbs <<EOF
 Host $remotename
   Hostname $remote
