@@ -87,11 +87,13 @@ EOF
   sockfile=${sock:-"/tmp/.rbs.$UID.$target.sock"}
   [[ $remote = *@* ]] && user="User ${remote%@*}" || user=""
   remote=${remote##*@}
-  pre_cmd=": \${UID:=\$(id -u)};echo \"$command -> \$USER@$remote[$remotename]\" >&2;"
-  fifo_prox="/tmp/.rbs.prox.\$UID"
-  connect_cmd="exec socat STDIO,raw,echo=0 UNIX-CONNECT:$sockfile"
+  #pre_cmd='trap "trap - INT TERM HUP;kill 0" INT TERM;'
+  pre_cmd=": \${UID:=\$(id -u)};echo \"$command -> \$USER@$remote[$remotename]\" >&2;cd \${XDG_RUNTIME_DIR:-/tmp};"
+#  pre_cmd=": \${UID:=\$(id -u)};cd \${XDG_RUNTIME_DIR:-/tmp};"
+  fifo_prox=".rbs.prox.\$UID"
+#  connect_cmd="exec socat STDIO,raw,echo=0 UNIX-CONNECT:$sockfile"
 #  listen_cmd="socat - UNIX-LISTEN:${sock##*/},mode=600"
-  proxy_cmd="echo \"Using proxy...\" >&2;echo %h.\$$ >$fifo_prox;sleep 1;exec nc -U /tmp/.rbs.\$UID.\$$.sock"
+  proxy_cmd="echo \"Using proxy...\" >&2;cd \${XDG_RUNTIME_DIR:-/tmp};echo %h.\$$ >$fifo_prox;sleep 1;exec nc -U .rbs.\$$.sock"
   [ "$remote" ] || {
     printf '%s\n' "Connect: ${connect_cmd##* }"
     $connect_cmd
@@ -108,7 +110,7 @@ Host $remotename
   Hostname $remote
   RequestTTY no
   StdinNull yes
-  RemoteCommand bash <(printf %%s '$pre_cmd rm -f $fifo_prox;(umask 077; mkfifo $fifo_prox);while :;do cat $fifo_prox;done')
+  RemoteCommand bash <(printf %%s '$pre_cmd rm -f $fifo_prox;umask 077; mkfifo $fifo_prox;tail -f $fifo_prox & while :;do echo || exit; sleep 1;done')
   $user
 EOF
 }
@@ -137,8 +139,8 @@ serve() {
 Host $host.
   Hostname $remote
   RequestTTY no
-  #RemoteCommand socat - UNIX-LISTEN:/tmp/.rbs.\$UID.$pid.sock,mode=600
-  RemoteCommand cd /tmp;exec nc -lU .rbs.\$UID.$pid.sock
+  #RemoteCommand socat - UNIX-LISTEN:/tmp/.rbs.$pid.sock,mode=600
+  RemoteCommand bash <(printf %%s 'cd \${XDG_RUNTIME_DIR:-/tmp};rm -f .rbs.$pid.sock;umask 077;exec nc -lU .rbs.$pid.sock')
 EOF
     (nc "$host" 22 <$fifo | ssh "$host." $ssh_conf >$fifo) &
     sleep 0.5
