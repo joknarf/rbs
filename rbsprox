@@ -142,6 +142,8 @@ serve() {
     printf -v h '%q' "$h"
     host="${h%.*}"
     sock="${h##*.}"
+    [[ "$host" =~ ^[0-9A-Za-z._-]+$ ]] || { echo "Invalid host name: $host" >&2; continue; }
+    [[ "$sock" =~ ^[0-9A-Za-z]+$ ]] || { echo "Invalid sock name: $sock" >&2; continue; }
     printf '%s\n' "Connect to $host:$sock" >&2
     fifo="$(mktemp -u -t .XXXXXXXXXXX)"
     mkfifo $fifo
