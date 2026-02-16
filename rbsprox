@@ -85,18 +85,20 @@ EOF
   : ${UID:=$(id -u)}
   [[ $remote = *@* ]] && user="User ${remote%@*}" || user=""
   remote=${remote##*@}
-  fifo_prox=$(mktemp -ut .XXXXXXXXXXX)
+  fifo_prox=$(mktemp -ut XXXXXXXXXXX)
   fifo_prox="${fifo_prox##*/}"
-  proxy_cmd=$( cat - <<EOF
+  proxy_cmd=$(cat - <<EOF
 cd \${XDG_RUNTIME_DIR:-/tmp}
 [ -p $fifo_prox ] || { echo "Proxy not available" >&2; exit 1; }
 echo "Using proxy..." >&2
-sock=\$(mktemp -up. -t .XXXXXXXXXXX)
+sock=\$(mktemp -up. -t XXXXXXXXXXX)
+sock=\${sock#./}
 rm -f \$sock
-echo \$1\${sock#./} >$fifo_prox
+echo \$1:\$sock >$fifo_prox
 while [ ! -S \$sock ];do sleep 0.1;done
 { sleep 0.5; rm -f \$sock; } &
-exec nc -U \$sock
+exec nc -U \$sock # use "exec" causes a defunct bash children on client side
+wait
 EOF
   )
   remote_cmd=$( cat - <<EOF
@@ -104,7 +106,7 @@ echo "$command -> \$USER@$remote[$remotename]" >&2
 cd \${XDG_RUNTIME_DIR:-/tmp}
 cat - <<'EOZ' >~/.ssh/rbs_proxy
 Host *
-  ProxyCommand bash <(base64 -d <<<$(base64 -w0 <<< "$proxy_cmd")) %h
+  ProxyCommand bash <(base64 -d <<<$(base64 -w0 <<<"$proxy_cmd")) %h
 EOZ
 rm -f $fifo_prox
 umask 077
@@ -122,7 +124,6 @@ Host $remotename
   RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"$remote_cmd"))
   $user
 EOF
-#cat ~/.ssh/rbs
 }
 [ "$_rbs_post" ] || {
   rbs_pre "$@"
@@ -134,26 +135,26 @@ grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config && ssh_conf='' || ssh_co
 cd ~/.ssh
 ssh_config="$(cat rbs)"
 #trap "rm -f $fifo ~/.ssh/.bashrc;> ~/.ssh/rbs" EXIT
+export TMPDIR="${XDG_RUNTIME_DIR:-/tmp}"
 
 serve() {
   cat - >~/.ssh/rbs <<<"$ssh_config"
   coproc PROD { exec ssh $remotename $ssh_conf; }
-
   while read h;do
     [ ! "$h" ] && continue
     printf -v h '%q' "$h"
-    host="${h%.*}"
-    sock="${h##*.}"
+    host="${h%:*}"
+    sock="${h##*:}"
     [[ "$host" =~ ^[0-9A-Za-z._-]+$ ]] || { echo "Invalid host name: $host" >&2; continue; }
     [[ "$sock" =~ ^[0-9A-Za-z]+$ ]] || { echo "Invalid sock name: $sock" >&2; continue; }
     printf '%s\n' "Connect to $host:$sock" >&2
-    fifo="$(mktemp -u -t .XXXXXXXXXXX)"
+    fifo="$(mktemp -u -t XXXXXXXXXXX)"
     mkfifo $fifo
     cat - <<EOF >~/.ssh/rbs
 Host $host.
   Hostname $remote
   RequestTTY no
-  RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<< "cd \${XDG_RUNTIME_DIR:-/tmp};umask 077;exec nc -lU .$sock"))
+  RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"cd \${XDG_RUNTIME_DIR:-/tmp};umask 077;exec nc -lU $sock"))
 EOF
     (nc "$host" 22 <$fifo | ssh "$host." $ssh_conf >$fifo) &
     sleep 0.5
