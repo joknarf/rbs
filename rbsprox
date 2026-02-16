@@ -110,7 +110,9 @@ rm -f $fifo_prox
 umask 077
 mkfifo $fifo_prox
 trap 'rm -f $fifo_prox' EXIT
-tail --pid \$PPID -f $fifo_prox & echo >$fifo_prox;wait
+tail -f $fifo_prox &
+echo >$fifo_prox
+wait
 EOF
   )
   cat - >~/.ssh/rbs <<EOF
