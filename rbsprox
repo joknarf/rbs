@@ -95,6 +95,7 @@ sock=\$(mktemp -up. -t .XXXXXXXXXXX)
 rm -f \$sock
 echo \$1\${sock#./} >$fifo_prox
 while [ ! -S \$sock ];do sleep 0.1;done
+{ sleep 0.5; rm -f \$sock; } &
 exec nc -U \$sock
 EOF
   )
@@ -138,7 +139,7 @@ serve() {
 
   while read h;do
     [ ! "$h" ] && continue
-    h=$(printf '%q' "$h")
+    printf -v h '%q' "$h"
     host="${h%.*}"
     sock="${h##*.}"
     printf '%s\n' "Connect to $host:$sock" >&2
