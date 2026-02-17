@@ -81,7 +81,32 @@ local$ rbsprox -r <remote>
 remote$ rbsprox <anyhost>
 <remote> -> ask proxy for <anyhost> -> nc -> <local> -> <anyhost>
 or use ssh -F ~/.ssh/rbs_proxy <anyhost>
-``` 
+```
+
+## Concepts
+
+Basically, rbs is just using a fifo as a communication chanel to relay network traffic, allowing just using the ssh open connection to transmit all network trafic.
+Using unix socket, nothing to listen at ip level anywhere.
+
+simple examples:
+
+* use ssh connection to do reverse shell:
+
+```
+from host serving shell:
+$ mkfifo /tmp/f;script -qf </tmp/f |ssh remote socat - UNIX-LISTEN:/tmp/s >/tmp/f
+then connect from remote:
+$ socat STDIO,raw,echo=0 UNIX-CONNECT:/tmp/s
+```
+
+* use ssh connection to do a reverse proxy:
+
+```
+from host to serve proxy:
+$ mkfifo /tmp/f; nc target 22 </tmp/f |ssh remote nc -lU /tmp/s >/tmp/f
+then connect from remote to target using proxy:
+$ ssh -o ProxyCommand='nc -U /tmp/s' target
+```
 
 ## usage
 
