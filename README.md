@@ -85,8 +85,13 @@ or use ssh -F ~/.ssh/rbs_proxy <anyhost>
 
 ## Concepts
 
-Basically, rbs is just using a fifo as a communication chanel to relay network traffic, allowing just using the ssh open connection to transmit all network trafic.
-Using unix socket, nothing to listen at ip level anywhere.
+Basically, rbs is just using a fifo as a communication chanel to relay network traffic, and unix socket listen, allowing network connection to be sent back trough a open ssh connection initiated from a server.  
+Nothing needs to listen at IP level anywhere.
+
+Once ssh connection initiated from server to host:
+
+* You can connect back to a server from host, even if no IP port open from host to server.
+* You can use a server as a ssh proxy from host, making your connection to other servers using server IP, even if server not accessible through ssh from host.
 
 simple examples:
 
