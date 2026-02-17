@@ -90,13 +90,14 @@ EOF
   proxy_cmd=$(cat - <<EOF
 cd \${XDG_RUNTIME_DIR:-/tmp}
 [ -p $fifo_prox ] || { echo "Proxy not available" >&2; exit 1; }
-echo "Using proxy..." >&2
+printf "Waiting proxy..." >&2
 sock=\$(mktemp -up. -t XXXXXXXXXXX)
 sock=\${sock#./}
 rm -f \$sock
 echo \$1:\$sock >$fifo_prox
 while [ ! -S \$sock ];do sleep 0.1;done
-{ sleep 0.5; rm -f \$sock; } &
+( ( sleep 0.5; rm -f \$sock ) & exit 0 ) & wait # double fork to detach cleanup process (no zombie)
+printf "ok\n" >&2
 exec nc -U \$sock # use "exec" causes a defunct bash children on client side
 wait
 EOF
@@ -154,7 +155,8 @@ serve() {
 Host $host.
   Hostname $remote
   RequestTTY no
-  RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"cd \${XDG_RUNTIME_DIR:-/tmp};umask 077;exec nc -lU $sock"))
+  RemoteCommand cd \${XDG_RUNTIME_DIR:-/tmp};umask 077;exec nc -lU $sock
+  #RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"cd \${XDG_RUNTIME_DIR:-/tmp};umask 077;exec nc -lU $sock")) # zombie ?
 EOF
     (nc "$host" 22 <$fifo | ssh "$host." $ssh_conf >$fifo) &
     sleep 0.5
