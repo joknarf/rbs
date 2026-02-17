@@ -98,18 +98,18 @@ simple examples:
 * use ssh connection to do reverse shell:
 
 ```
-from host serving shell:
+serve shell from server:
 $ mkfifo /tmp/f;script -qf </tmp/f |ssh remote socat - UNIX-LISTEN:/tmp/s >/tmp/f
-then connect from remote:
+then connect from remote host:
 $ socat STDIO,raw,echo=0 UNIX-CONNECT:/tmp/s
 ```
 
 * use ssh connection to do a reverse proxy:
 
 ```
-from host to serve proxy:
+serve proxy from server:
 $ mkfifo /tmp/f; nc target 22 </tmp/f |ssh remote nc -lU /tmp/s >/tmp/f
-then connect from remote to target using proxy:
+then connect from remote host to target using server proxy:
 $ ssh -o ProxyCommand='nc -U /tmp/s' target
 ```
 
