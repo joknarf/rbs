@@ -134,7 +134,7 @@ EOF
   }
 
   [ "$password" ] && {
-    token=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
+    token=$(openssl rand -base64 32)
     gpg64=$(gpg -c --batch --cipher-algo AES256 --passphrase-file <(printf %s $password) <<<"$token" |base64 -w0)
     tty_cmd=$(cat - <<EOF
 read -s -p "Password: " p;base64 -d <<<$gpg64 | gpg -d --batch --passphrase-file <(printf %s "\$p") >/dev/null 2>&1 || exit 1
@@ -156,13 +156,13 @@ EOF
 Host $remotename
   Hostname $remote
   RequestTTY no
-  RemoteCommand $pre_cmd pkill -U \$UID -f "^$listen_cmd"; sleep 1;exec $listen_cmd
+  RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"$pre_cmd pkill -U \$UID -f \"^$listen_cmd\"; sleep 1;exec $listen_cmd"))
   $user
 
 Host $ttysrvname
   Hostname $ttyserver
   RequestTTY force
-  RemoteCommand exec bash --rcfile <(printf %%s '${tty_cmd//%/%%}')
+  RemoteCommand bash --rcfile <(base64 -d <<<$(base64 -w0 <<<"$tty_cmd"))
   $ttyuser
 
 EOF
@@ -191,7 +191,7 @@ serve() {
              || coproc PROD { exec bash .bashrc <$fifo; } 
   } || {
     $use_ssh && coproc PROD { exec ssh $ttysrvname $ssh_conf <$fifo; } \
-             || coproc PROD { exec script -qfc "exec bash --rcfile .bashrc" /dev/null <$fifo; }
+             || coproc PROD { exec script -qfc "bash --rcfile .bashrc" /dev/null <$fifo; }
   }
   printf '%s' "$ssh_config" >rbs
   (
