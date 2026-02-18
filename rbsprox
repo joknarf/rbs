@@ -132,7 +132,7 @@ EOF
   _rbs_post=1 exec bash <$0
 }
 umask 077
-grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config && ssh_conf='' || ssh_conf='-F rbs'
+grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config 2>/dev/null && ssh_conf='' || ssh_conf='-F rbs'
 cd ~/.ssh
 ssh_config="$(cat rbs)"
 #trap "rm -f $fifo ~/.ssh/.bashrc;> ~/.ssh/rbs" EXIT
