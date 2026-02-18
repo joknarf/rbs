@@ -113,8 +113,8 @@ rm -f $fifo_prox
 umask 077
 mkfifo $fifo_prox
 trap 'rm -f $fifo_prox' EXIT
-tail -f $fifo_prox &
-echo >$fifo_prox
+(echo >$fifo_prox) & # init fifo to have tail output to get kernel signal on exit
+tail -f $fifo_prox
 wait
 EOF
   )
