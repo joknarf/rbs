@@ -95,6 +95,7 @@ sock=\$(mktemp -up. -t XXXXXXXXXXX)
 sock=\${sock#./}
 rm -f \$sock
 echo \$1:\$sock >$fifo_prox
+trap 'sleep 2;[ -S \$sock ] && nc --send-only -U \$sock <<<exit && rm -f \$sock;exit' INT TERM
 while [ ! -S \$sock ];do sleep 0.1;done
 ( ( sleep 0.5; rm -f \$sock ) & exit 0 ) & wait # double fork to detach cleanup process (no zombie)
 printf "ok\n" >&2
