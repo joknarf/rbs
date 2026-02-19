@@ -194,11 +194,11 @@ $ ssh -o ProxyCommand='nc -U /tmp/s' target
         │          │    ▼              │
         │   ┌─────────────────────┐    │     |
         │   │ nc -U /tmp/s        │    │
-        │   │ UNIX-CONNECT:/tmp/s │◄ ─ ─ ─ ─ ┘
+        │   │ UNIX-CONNECT:/tmp/s │    │     |
         │   └─────────┬───────────┘    │
+        │             │                │     |
         │             │                │
-        │             │                │
-        │    ssh ProxyCommand target   │
+        │    ssh ProxyCommand target ◄ ─ ─ ─ ┘
         │                              │
         │                              │
         └──────────────────────────────┘
