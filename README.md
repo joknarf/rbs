@@ -135,11 +135,9 @@ $ socat STDIO,raw,echo=0 UNIX-CONNECT:/tmp/s
         │   │  UNIX-LISTEN:/tmp/s │    │     |
         │   └───────────┬─────────┘    │
         │          ▲    │              │     |
-        │          │    │              │
-        │          │    ▼              │     |
-        │   /tmp/s (UNIX socket)       |
-        │          ▲    │              │     |
-        │          │    │              │
+        │          │    ▼              │
+        │   /tmp/s (UNIX socket)       |     |
+        │          ▲    │              │
         │          │    ▼              │     |
         │   ┌─────────────────────┐    │
         │   │ socat               │◄ ─ ─ ─ ─ ┘
@@ -186,11 +184,9 @@ $ ssh -o ProxyCommand='nc -U /tmp/s' target
         │   │  UNIX-LISTEN:/tmp/s │    │
         │   └───────────┬─────────┘    │     |
         │          ▲    │              │
-        │          │    │              │     |
-        │          │    ▼              │
-        │   /tmp/s (UNIX socket)       |     |
-        │          ▲    │              │
-        │          │    │              │     |
+        │          │    ▼              │     |
+        │   /tmp/s (UNIX socket)       |
+        │          ▲    │              │     |
         │          │    ▼              │
         │   ┌─────────────────────┐    │     |
         │   │ nc -U /tmp/s        │    │
@@ -199,7 +195,6 @@ $ ssh -o ProxyCommand='nc -U /tmp/s' target
         │             │                │     |
         │             │                │
         │    ssh ProxyCommand target ◄ ─ ─ ─ ┘
-        │                              │
         │                              │
         └──────────────────────────────┘
 ```
