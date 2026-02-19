@@ -73,6 +73,9 @@ remote$ ssh -F ~/.ssh/rbs_proxy <anyhost>
 ```
 
 using `rbs` only 1 connection at a time is possible, to have full featured reverse ssh proxy use `rbsprox`
+
+![rbsprox](https://github.com/user-attachments/assets/81a73d44-3769-49b0-a80d-70009df9e324)
+
 ```
 local$ rbsprox -r <remote>
 <local> -> ssh - <remote> <wait for proxy demand>
