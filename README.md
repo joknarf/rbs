@@ -158,6 +158,52 @@ then connect from remote host to target using server proxy:
 $ ssh -o ProxyCommand='nc -U /tmp/s' target
 ```
 
+```
+        ┌──────────────────────────────┐        ┌──────────────────────────────┐
+        │            SERVER            │        │            TARGET            |
+        │                              │        |                              │
+        │       ┌──────────────┐       │        │       ┌──────────────┐       │
+        │       │nc target 22  │────────────────────────│    sshd      │       │
+        │       │TCP           │       │     ┌ ─ ─ ─ ─ ►│              │       │
+        │       └──────┬───────┘       │        │       └──────────────┘       │
+        │              │               │     |  └──────────────────────────────┘
+        │        /tmp/f (FIFO)         │
+        │           ▲     │            │     |
+        │           │     ▼            │
+        │         stdin stdout         │     |
+        │           │     │            │
+        │       ┌───┴─────┴───┐        │     |
+      ┌────────►│     ssh     │──────────┐
+      │ │       └─┬───────────┘        │ │   |
+      │ └─────────│────────────────────┘ │
+      │           │                      │   |
+      │           │                      │
+      │ ┌─────────│────────────────────┐ │   |
+      │ │         │ REMOTE             │ │
+      │ │         │                    │ │   |
+      │ │   ┌─────┴───────────────┐    │ │
+      └─────│  nc -Ul /tmp/s      │◄─────┘   |
+        │   │  UNIX-LISTEN:/tmp/s │    │
+        │   └───────────┬─────────┘    │     |
+        │          ▲    │              │
+        │          │    │              │     |
+        │          │    ▼              │
+        │   /tmp/s (UNIX socket)       |     |
+        │          ▲    │              │
+        │          │    │              │     |
+        │          │    ▼              │
+        │   ┌─────────────────────┐    │     |
+        │   │ nc -U /tmp/s        │    │
+        │   │ UNIX-CONNECT:/tmp/s │◄ ─ ─ ─ ─ ┘
+        │   └─────────┬───────────┘    │
+        │             │                │
+        │             │                │
+        │    ssh ProxyCommand target   │
+        │                              │
+        │                              │
+        └──────────────────────────────┘
+```
+
 ## usage
 
 * Bypass any totally useless/buggy security tools protection auditing your tty, like "CyberFart" CAC, that is wrongly injecting bad Ctl-C to your tty, as they are totally unable to parse the command you are executing.
