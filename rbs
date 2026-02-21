@@ -149,7 +149,7 @@ EOF
   } || tty_cmd='read -s -n 1 -p "Press any key to continue..."'
   tty_cmd+="$(cat - <<'EOF'
 
-type -p resize || resize() {
+type -p resize >/dev/null 2>&1 || resize() {
   typeset oldstty rows cols
   oldstty=$(stty -g)
   stty raw -echo min 0 time 5
@@ -184,7 +184,7 @@ EOF
 Host $remotename
   Hostname $remote
   RequestTTY no
-  RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"$pre_cmd exec $listen_cmd"))
+  RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"$pre_cmd pkill -U \$UID -f \"^$listen_cmd\";exec $listen_cmd"))
   $user
 
 Host $remotename.cleanup
