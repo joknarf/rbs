@@ -119,11 +119,11 @@ EOF
   pre_cmd=": \${UID:=\$(id -u)};echo \"$tuser@$ttyserver[$ttysrvname]:$command -> \$USER@$remote[$remotename]:${port:-$sock}\" >&2;"
   [ "$port" ] && {
     connect_cmd="exec socat STDIO,raw,echo=0 TCP:$bind:$port"
-    listen_cmd="socat - TCP-LISTEN:$port,bind=$bind,reuseaddr"
+    listen_cmd="socat -d0 - TCP-LISTEN:$port,bind=$bind,reuseaddr"
     proxy_cmd="bash -c '{ echo %h; cat; } |nc localhost $port'"
   } || {
     connect_cmd="exec socat STDIO,raw,echo=0 UNIX-CONNECT:$sockfile"
-    listen_cmd="socat - UNIX-LISTEN:${sock##*/},mode=600"
+    listen_cmd="socat -d0 - UNIX-LISTEN:${sock##*/},mode=600"
     proxy_cmd="bash -c '{ echo %h; cat; } |nc -U $sockfile'"
     pre_cmd+="cd ${sock%/*};rm -f $sock;"
   }
@@ -184,7 +184,13 @@ EOF
 Host $remotename
   Hostname $remote
   RequestTTY no
-  RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"$pre_cmd pkill -U \$UID -f \"^$listen_cmd\"; sleep 1;exec $listen_cmd"))
+  RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"$pre_cmd exec $listen_cmd"))
+  $user
+
+Host $remotename.cleanup
+  Hostname $remote
+  RequestTTY no
+  RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"pkill -U \$UID -f \"^$listen_cmd\""))
   $user
 
 Host $ttysrvname
@@ -250,5 +256,16 @@ $always && {
   exit
 }
 
-trap "trap - INT TERM;kill 0" INT TERM
+cleanup() {
+  trap - INT TERM
+  echo "Cleaning up..." >&2
+  echo "$ssh_config" >~/.ssh/rbs
+  ssh $remotename.cleanup $ssh_conf
+  rm -f $fifo ~/.ssh/.bashrc
+  > ~/.ssh/rbs
+  kill 0
+  exit
+}
+
+trap cleanup INT TERM
 serve 
