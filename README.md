@@ -19,6 +19,7 @@ If a server can connect to a host through ssh, the host can connect back to the 
 * optionnal password protected connection (using gpg)
 * serve interactive shell between 2 servers using a middle server
 * use unix socket or ip port to serve on remote server to connect
+* compatibility Linux/MacOS (use `rbs -e` to use `expect` instead of script on MacOS)
 * caveeat for reverse shell: automatic resize of tty size by SIGWINCH signal won't occur in session (need to use for example xterm `/bin/resize`)
 
 ## prerequites
