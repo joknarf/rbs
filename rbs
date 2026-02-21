@@ -126,6 +126,9 @@ EOF
   }
   [ "$remote" ] || {
     printf '%s\n' "Connect: ${connect_cmd##* }"
+    # early cleanup socket
+    [ "$sockfile" ] && ( (sleep 0.5;[ -S "$sockfile" ] && rm -f "$sockfile") & ) &
+    wait
     $connect_cmd
     exit
   }
