@@ -5,6 +5,8 @@
 # rbs
 reverse interactive command server over ssh, and reverse ssh proxy
 
+Just use ssh stdin/stdout to serve local shell/command/proxy to a remote server unix socket or ip port
+
 ## features
 
 * reverse command/shell using ssh from local/remote server to another remote server
