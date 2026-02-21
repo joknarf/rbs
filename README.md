@@ -7,7 +7,7 @@ remote reverse interactive shell/command/ssh proxy over ssh stdio
 
 Just use ssh stdin/stdout to serve local shell/command/proxy to a remote server unix socket or ip port
 
-If a server can connect to a host through ssh, the host can connect back to the server (no ip port to open)
+If a server can connect to a host through ssh, the host can connect back to the server using this ssh connection (no ip port to open)
 
 ## features
 
