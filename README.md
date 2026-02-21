@@ -1,5 +1,6 @@
 [![Joknarf Tools](https://img.shields.io/badge/Joknarf%20Tools-Visit-darkgreen?logo=github)](https://joknarf.github.io/joknarf-tools)
 [![Shell](https://img.shields.io/badge/shell-bash%20-blue.svg)]()
+[![OS](https://img.shields.io/badge/OS-Linux%20|%20macOS%20-blue.svg)]()
 
 
 # rbs
