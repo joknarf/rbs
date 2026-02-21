@@ -28,7 +28,7 @@ If a server can connect to a host through ssh, the host can connect back to the 
 * `gpg` (optionnal password authent)
 * xterm resize (optional to have tty resized to your terminal size)
 
-* `nc` on `local` + `remote` for `rbsprox` (supporting Unix socket -U)
+* `nc` on `local` + `remote` for `rbsprox` (supporting Unix socket `-U` option)
   
 ## reverse shell/command serve/connect
 
