@@ -32,28 +32,28 @@ reverse interactive command server over ssh, and reverse ssh proxy
 
 start reverse shell serve from local `host` on `remote` (need ssh access to `<remote>` from `host`) and connect to shell from `<remote>`:
 
-```
-start reverse shell on host to listen on <remote>:
+```shell
+# start reverse shell on host to listen on <remote>:
 local$ rbs -r <remote>
-<local> spawn interactive bash -> ssh <remote> -> listen <sock>
+# <local> spawn interactive bash -> ssh <remote> -> listen <sock>
 
-connect to <host> shell from <remote>:
+# connect to <host> shell from <remote>:
 remote$ rbs
-<remote> -> <sock> -> <host> -> interactive bash
-access host shell
+# <remote> -> <sock> -> <host> -> interactive bash
+# -> access host shell
 ```
 add `Include ~/.ssh/rbs` in your ~/.ssh/config to avoid having `rbs` to use `-F ~/.ssh/rbs` ssh option
 
 process view on `host` exposing the shell:
-```
+```shell
 ► 2674779 (joknarf) [bash] 20:05 bash
-  ├─2674784 (joknarf) [script] 20:05 script -qfc exec bash --rcfile .bashrc /dev/null
+  ├─2674784 (joknarf) [script] 20:05 script -qfc bash --rcfile .bashrc /dev/null
   │ └─2674786 (joknarf) [bash] 20:05 bash -l
   └─2674785 (joknarf) [ssh] 20:05 ssh remote
 ```
 
 if force use ssh (-s) for local host (uses `ssh local` instead of `script` command):
-```
+```shell
 ► 2676448 (joknarf) [bash] 20:09 bash
   ├─2676453 (joknarf) [ssh] 20:09 ssh local
   └─2676454 (joknarf) [ssh] 20:09 ssh remote
@@ -63,28 +63,28 @@ if force use ssh (-s) for local host (uses `ssh local` instead of `script` comma
 
 start a reverse ssh proxy server:
 `<local>` connects to `<remote>` to initiate unixsocket, then `<remote>` can use `<local>` as proxy without ssh connection to it.
-```
+```shell
 local$ rbs -r <remote> -x
-<local> -> <spawn nc on demand to any host> -> ssh <remote> -> listen <sock>
+#<local> -> <spawn nc on demand to any host> -> ssh <remote> -> listen <sock>
 
 # connect ssh to any host from <remote> using proxy on <local> (ssh -> unix socet to <local> -> <anyhost>:22)
 remote$ ssh -F ~/.ssh/rbs_proxy <anyhost>
-<remote> -> ssh <anyhost> -> proxy command use <sock> to contact <local> -> <local> spawn nc to <anyhost> -> <anyhost>
+#<remote> -> ssh <anyhost> -> proxy command use <sock> to contact <local> -> <local> spawn nc to <anyhost> -> <anyhost>
 ```
 
 using `rbs` only 1 connection at a time is possible, to have full featured reverse ssh proxy use `rbsprox`
 
 ![rbsprox](https://github.com/user-attachments/assets/81a73d44-3769-49b0-a80d-70009df9e324)
 
-```
+```shell
 local$ rbsprox -r <remote>
-<local> -> ssh - <remote> <wait for proxy demand>
-<local> receive demand -> nc <-> ssh remote
+# <local> -> ssh - <remote> <wait for proxy demand>
+# <local> receive demand -> nc <-> ssh remote
 
 # connect ssh to multiple hosts from <remote> using proxy on <local>
 remote$ rbsprox <anyhost>
-<remote> -> ask proxy for <anyhost> -> nc -> <local> -> <anyhost>
-or use ssh -F ~/.ssh/rbs_proxy <anyhost>
+# <remote> -> ask proxy for <anyhost> -> nc -> <local> -> <anyhost>
+# or use ssh -F ~/.ssh/rbs_proxy <anyhost>
 ```
 
 ## Concepts
@@ -101,10 +101,10 @@ simple examples:
 
 * use ssh connection to do reverse shell:
 
-```
-serve shell from server:
+```shell
+# serve shell from server:
 $ mkfifo /tmp/f;script -qf </tmp/f |ssh remote socat - UNIX-LISTEN:/tmp/s >/tmp/f
-then connect from remote host:
+# then connect from remote host:
 $ socat STDIO,raw,echo=0 UNIX-CONNECT:/tmp/s
 ```
 
@@ -152,10 +152,10 @@ $ socat STDIO,raw,echo=0 UNIX-CONNECT:/tmp/s
 
 * use ssh connection to do a reverse proxy:
 
-```
-serve proxy from server:
+```shell
+# serve proxy from server:
 $ mkfifo /tmp/f; nc target 22 </tmp/f |ssh remote nc -lU /tmp/s >/tmp/f
-then connect from remote host to target using server proxy:
+# then connect from remote host to target using server proxy:
 $ ssh -o ProxyCommand='nc -U /tmp/s' target
 ```
 
