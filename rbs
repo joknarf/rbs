@@ -9,7 +9,7 @@
 # Author: joknarf
 
 usage() {
-  printf '%s' 'usage: 
+  printf '%s' "usage: 
   server: rbs -r <remote> [-p <port>|-S <sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-b <bind>] [-c config] [-C <command>] [-a] [-s]
   client: rbs [-p port|-S <sock>] [-T <ttysrname>]
 
@@ -26,9 +26,10 @@ usage() {
   -x            : reverse ssh proxy (ssh -F ~/.ssh/rbs_proxy on remote to use proxy)
   -a            : always serve (relaunch on disconnect)
   -s            : use ssh instead of script command to spawn shell/command when localhost
+  -e            : use expect instead of script to spawn shell/command (macOS script won't work)
 
 in your ~/.ssh/config add Include ~/.ssh/rbs (or ssh will be run with -F ~/.ssh/rbs)
-'
+"
   exit 0
 }
 
@@ -81,8 +82,9 @@ EOF
   use_ssh=false
   command="bash -l"
   ssh_proxy=false
+  use_expect=false
   [ -f ~/.rbs.conf ] && . ~/.rbs.conf
-  while getopts 'hsaxc:r:R:p:P:S:C:t:T:b:' opt;do
+  while getopts 'hseaxc:r:R:p:P:S:C:t:T:b:' opt;do
     case "$opt" in
       c) . "$OPTARG";;
       C) command="$OPTARG";;
@@ -95,6 +97,7 @@ EOF
       S) sock="$OPTARG";;
       a) always=true;;
       s) use_ssh=true;;
+      e) use_expect=true;;
       b) bind="$OPTARG";;
       x) ssh_proxy=true;;
       h|\?) usage;;
@@ -144,7 +147,29 @@ read -s -p "Password: " p;base64 -d <<<$gpg64 | gpg -d --batch --passphrase-file
 EOF
     )
   } || tty_cmd='read -s -n 1 -p "Press any key to continue..."'
-  tty_cmd="$tty_cmd; echo; cd; type resize >/dev/null 2>&1 && . <(resize 2>/dev/null); rm -f ~/.ssh/.bashrc;RBS=true exec $command"
+  tty_cmd+="$(cat - <<'EOF'
+
+type -p resize || resize() {
+  typeset oldstty rows cols
+  oldstty=$(stty -g)
+  stty raw -echo min 0 time 5
+  printf '\033[18t' > /dev/tty
+  IFS=';' read -r -d t _ rows cols < /dev/tty
+  stty "$oldstty"
+  if [[ $rows =~ ^[0-9]+$ && $cols =~ ^[0-9]+$ ]]; then
+    printf 'stty rows "%s" cols "%s"' "$rows" "$cols"
+  fi
+}
+echo
+. <(resize 2>/dev/null)
+rm -f ~/.ssh/.bashrc
+cd
+RBS=true 
+EOF
+  )"
+  # warn: += appends at end of line, not new line
+  tty_cmd+=" exec $command"
+
   $ssh_proxy && {
     command="proxy"
     pre_cmd+="base64 -d <<<$(base64 -w0 <<EOF
@@ -172,7 +197,7 @@ EOF
 }
 [ "$_rbs_post" ] || {
   rbs_pre "$@"
-  export remotename ttysrvname always use_ssh ssh_proxy
+  export remotename ttysrvname always use_ssh ssh_proxy use_expect
   _rbs_post=1 exec bash <$0
 }
 grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config 2>/dev/null && ssh_conf='' || ssh_conf='-F rbs'
@@ -182,8 +207,14 @@ ssh_config="$(cat rbs)"
 fifo="$(mktemp -u -t .XXXXXXXXXXX)"
 trap "rm -f $fifo ~/.ssh/.bashrc;> ~/.ssh/rbs" EXIT
 
+localcmd() {
+  $use_expect && exec expect -f <(echo 'log_user 0;set timeout -1;spawn bash --rcfile .bashrc;interact') || \
+  exec script -qfc 'bash --rcfile .bashrc' /dev/null
+}
+
 serve() {
-  #  script -q -f -c "exec bash --rcfile .bashrc" /dev/null <$fifo |ssh $remotename $ssh_conf >$fifo
+  #  script -qfc "exec bash --rcfile .bashrc" /dev/null <$fifo |ssh $remotename $ssh_conf >$fifo
+  #  expect -f <<<'set timeout -1;spawn bash --rcfile .bashrc;interact'
   #  ssh $ttysrvname $ssh_conf <$fifo | ssh $remotename $ssh_conf >$fifo
   # use coproc to kill $ttyserver shell/ssh on remote disconnect
   
@@ -194,7 +225,7 @@ serve() {
              || coproc PROD { exec bash .bashrc <$fifo; } 
   } || {
     $use_ssh && coproc PROD { exec ssh $ttysrvname $ssh_conf <$fifo; } \
-             || coproc PROD { exec script -qfc "bash --rcfile .bashrc" /dev/null <$fifo; }
+             || coproc PROD { localcmd <$fifo; }
   }
   printf '%s' "$ssh_config" >rbs
   (
