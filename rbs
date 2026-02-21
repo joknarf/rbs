@@ -143,10 +143,11 @@ EOF
     token=$(openssl rand -base64 32)
     gpg64=$(gpg -c --batch --cipher-algo AES256 --passphrase-file <(printf %s $password) <<<"$token" |base64 -w0)
     tty_cmd=$(cat - <<EOF
+rm -f ~/.ssh/.bashrc ~/.ssh/.exp
 read -s -p "Password: " p;base64 -d <<<$gpg64 | gpg -d --batch --passphrase-file <(printf %s "\$p") >/dev/null 2>&1 || exit 1
 EOF
     )
-  } || tty_cmd='read -s -n 1 -p "Press any key to continue..."'
+  } || tty_cmd='rm -f ~/.ssh/.bashrc ~/.ssh/.exp;read -s -n 1 -p "Press any key to continue..."'
   tty_cmd+="$(cat - <<'EOF'
 
 type -p resize >/dev/null 2>&1 || resize() {
@@ -162,7 +163,6 @@ type -p resize >/dev/null 2>&1 || resize() {
 }
 echo
 . <(resize 2>/dev/null)
-rm -f ~/.ssh/.bashrc
 cd
 RBS=true 
 EOF
@@ -214,8 +214,10 @@ fifo="$(mktemp -u -t .XXXXXXXXXXX)"
 trap "rm -f $fifo ~/.ssh/.bashrc;> ~/.ssh/rbs" EXIT
 
 localcmd() {
-  $use_expect && exec expect -f <(echo 'log_user 0;set timeout -1;spawn bash --rcfile .bashrc;interact') || \
-  exec script -qfc 'bash --rcfile .bashrc' /dev/null
+  $use_expect && {
+    cat >.exp <<<'log_user 0;set timeout -1;spawn bash --rcfile .bashrc;interact'
+    exec expect -f .exp
+  } || exec script -qfc 'bash --rcfile .bashrc' /dev/null
 }
 
 serve() {
