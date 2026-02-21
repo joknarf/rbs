@@ -246,9 +246,9 @@ serve_always() {
 }
 
 $always && {
-  trap "trap - INT TERM;kill 0" INT TERM
   serve_always
   exit
 }
 
+trap "trap - INT TERM;kill 0" INT TERM
 serve 

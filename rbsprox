@@ -82,6 +82,7 @@ EOF
     cd ~/.ssh
     exec ssh -F rbs_proxy $target "$@"
   }
+  [ "$remote" ] || { echo "Remote not specified" >&2; usage; }
   : ${UID:=$(id -u)}
   [[ $remote = *@* ]] && user="User ${remote%@*}" || user=""
   remote=${remote##*@}
@@ -176,9 +177,9 @@ serve_always() {
 }
 
 $always && {
-  trap "trap - INT TERM;kill 0" INT TERM
   serve_always
   exit
 }
 
+trap 'trap - INT TERM;kill 0' INT TERM
 serve
