@@ -10,12 +10,13 @@
 
 usage() {
   printf '%s' "usage: 
-  server: rbs -r <remote>[:<port>|:<sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-b <bind>] [-c config] [-C <command>] [-a] [-s]
+  server: rbs -r [user@]<remote>[:<port>|:<sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-b <bind>] [-c config] [-C <command>] [-a] [-s]
   client: rbs [-p port|-S <sock>] [-T <ttysrname>]
 
-  -r remote     : ip/host to serve shell/command (optionally prefixed with user@)
-  sock       : unix socket file to listen/connect on remote (/tmp/.rbs.<uid>.<ttysrvname>.sock)
-  port       : port to listen on remote (4444) instead of unix socket
+  -r remote     : ip/host to serve shell/command
+  user@         : optional ssh user for remote
+  :sock         : unix socket file to listen/connect on remote (/tmp/.rbs.<uid>.<ttysrvname>.sock)
+  :port         : port to listen on remote (4444) instead of unix socket
   -t ttyserver  : host to expose shell/command (localhost) (optionally prefixed with user@)
   -P passfile   : file containing password or '-' to enter interactively
   -T ttysrvname : ssh Host alias to connect to ttyserver (local)
