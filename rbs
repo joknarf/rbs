@@ -11,7 +11,7 @@
 usage() {
   printf '%s' "usage: 
   server: rbs -r [<user>@]<remote>[:<port>|:<sock>] [-P <passfile|->] [-t [<user>@]<ttyserver>] [-T <ttysrvname>] [-R <remotename>] [-b <bind>] [-c config] [-C <command>] [-a] [-s]
-  client: rbs [-p port|-S <sock>] [-T <ttysrname>]
+  client: rbs <remote>[:<port>|:<sock>] [-T <ttysrname>]
 
   -r remote     : ip/host to serve shell/command
   user@         : optional ssh user for remote
@@ -125,7 +125,7 @@ EOF
   [ "$ttyserver" != localhost ] && use_ssh=true
   pre_cmd=": \${UID:=\$(id -u)};echo \"$tuser@$ttyserver[$ttysrvname]:$command -> \$USER@$remote[$remotename]:${port:-$sock}\" >&2;"
   [ "$port" ] && {
-    connect_cmd="exec socat STDIO,raw,echo=0 TCP:$bind:$port"
+    connect_cmd="exec socat STDIO,raw,echo=0 TCP:$remote:$port"
     listen_cmd="socat -d0 - TCP-LISTEN:$port,bind=$bind,reuseaddr"
     proxy_cmd="bash -c '{ echo %h; cat; } |nc localhost $port'"
   } || {
