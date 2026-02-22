@@ -8,7 +8,7 @@
 
 usage() {
   printf '%s' 'usage: 
-  server: rbsprox -r <remote> [-R <remotename>] [-p proxy] [-P proxyname] [-c config] [-a]
+  server: rbsprox -r <remote> [-R <remotename>] [-p proxy] [-P proxyname] [-f fifo] [-c config] [-a]
   client: rbsprox <target>
 
   -r remote     : ip/host to serve shell/command (optionally prefixed with user@)
@@ -16,6 +16,7 @@ usage() {
   -p proxy      : proxy to connect to remote (optionally prefixed with user@) (localhost)
   -P proxyname  : ssh Host alias to connect to proxy (proxy)
   -c config     : config file to load (~/.rbs.conf)
+  -f fifo       : fixed fifo basename to use (default random)
   -a            : always serve (relaunch on disconnect)
 
 in your ~/.ssh/config add Include ~/.ssh/rbs (or ssh will be run with -F ~/.ssh/rbs)
@@ -69,13 +70,14 @@ EOF
   command="proxy"
   proxyname=proxy
   [ -f ~/.rbs.conf ] && . ~/.rbs.conf
-  while getopts 'hac:r:R:p:P:' opt;do
+  while getopts 'hac:r:R:p:P:f:' opt;do
     case "$opt" in
       c) . "$OPTARG";;
       r) remote="$OPTARG";;
       R) remotename="$OPTARG";;
       p) proxy="$OPTARG";;
       P) proxyname="$OPTARG";;
+      f) fifo_prox="$OPTARG";;
       a) always=true;;
       h|\?) usage;;
     esac
@@ -91,25 +93,26 @@ EOF
   : ${UID:=$(id -u)}
   [[ $remote = *@* ]] && user="User ${remote%@*}" || user=""
   remote=${remote##*@}
-  fifo_prox=$(mktemp -ut XXXXXXXXXXX)
+  : ${fifo_prox:=$(mktemp -ut XXXXXXXXXXX)}
   fifo_prox="${fifo_prox##*/}"
   proxy_cmd=$(cat - <<EOF
 cd \${XDG_RUNTIME_DIR:-/tmp}
 [ -p $fifo_prox ] || { echo "Proxy not available" >&2; exit 1; }
 printf "Waiting proxy..." >&2
-sock=\$(mktemp -up. -t XXXXXXXXXXX)
-sock=\${sock#./}
-rm -f \$sock
-echo \$1:\$sock >$fifo_prox
-trap 'sleep 2;[ -S \$sock ] && nc --send-only -U \$sock <<<exit && rm -f \$sock;exit' INT TERM
-while [ ! -S \$sock ];do sleep 0.1;done
-( ( sleep 0.5; rm -f \$sock ) & exit 0 ) & wait # double fork to detach cleanup process (no zombie)
+s=\$(mktemp -up. -t XXXXXXXXXXX)
+s=\${s#./}
+rm -f \$s
+echo \$1:\$s >$fifo_prox
+trap 'sleep 2;[ -S \$s ] && nc --send-only -U \$s <<<exit && rm -f \$s;exit' INT TERM
+while [ ! -S \$s ];do sleep 0.1;done
+( ( sleep 0.5; rm -f \$s ) & exit 0 ) & wait
 printf "ok\n" >&2
-exec nc -U \$sock # use "exec" causes a defunct bash children on client side
+exec nc -U \$s
 wait
 EOF
   )
-  remote_cmd=$( cat - <<EOF
+  printf "ProxyCommand ssh %s 'bash <(base64 -d <<<%s) %%h'\n\n" "$remote" "$(base64 -w 0 <<<"$proxy_cmd")"
+  remote_cmd=$(cat - <<EOF
 echo "$command:${proxy:-localhost}[$proxyname] -> \$USER@$remote[$remotename]" >&2
 cd \${XDG_RUNTIME_DIR:-/tmp}
 cat - <<'EOZ' >~/.ssh/rbs_proxy
