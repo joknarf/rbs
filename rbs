@@ -10,17 +10,17 @@
 
 usage() {
   printf '%s' "usage: 
-  server: rbs -r <remote> [-p <port>|-S <sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-b <bind>] [-c config] [-C <command>] [-a] [-s]
+  server: rbs -r <remote>[:<port>|:<sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-b <bind>] [-c config] [-C <command>] [-a] [-s]
   client: rbs [-p port|-S <sock>] [-T <ttysrname>]
 
   -r remote     : ip/host to serve shell/command (optionally prefixed with user@)
+  sock       : unix socket file to listen/connect on remote (/tmp/.rbs.<uid>.<ttysrvname>.sock)
+  port       : port to listen on remote (4444) instead of unix socket
   -t ttyserver  : host to expose shell/command (localhost) (optionally prefixed with user@)
-  -S sock       : unix socket file to listen/connect on remote (/tmp/.rbs.<uid>.<ttysrvname>.sock)
   -P passfile   : file containing password or '-' to enter interactively
   -T ttysrvname : ssh Host alias to connect to ttyserver (local)
   -R remotename : ssh Host alias to connect to remote (remote)
-  -p port       : port to listen on remote (4444) instead of unix socket
-  -b bind       : bind/connect address on remote(localhost)
+  -b bind       : bind/connect address on remote (localhost)
   -C command    : shell command to execute on local and serve (bash -l)
   -c config     : config file to load (~/.rbs.conf)
   -x            : reverse ssh proxy (ssh -F ~/.ssh/rbs_proxy on remote to use proxy)
@@ -88,13 +88,11 @@ EOF
     case "$opt" in
       c) . "$OPTARG";;
       C) command="$OPTARG";;
-      r) remote="$OPTARG";;
+      r) remote_host="$OPTARG";;
       t) ttyserver="$OPTARG";;
-      p) port="$OPTARG";;
       P) passfile="$OPTARG";;
       T) ttysrvname="$OPTARG";;
       R) remotename="$OPTARG";;
-      S) sock="$OPTARG";;
       a) always=true;;
       s) use_ssh=true;;
       e) use_expect=true;;
@@ -103,6 +101,14 @@ EOF
       h|\?) usage;;
     esac
   done
+  shift $((OPTIND-1))
+  [ "$1" ] && remote="$1"
+  [ "$remote_host" ] && remote="$remote_host" || : ${remote:=":/tmp/.rbs.$UID.$ttysrvname.sock"}
+  [[ $remote = *:* ]] && {
+    remote_port="${remote##*:}"
+    [[ $remote_port =~ ^[0-9]+$ ]] && port=$remote_port || sock=$remote_port
+  }
+  remote=${remote%%:*}
   [ "$bind" ] && port="${port:-4444}"
   bind="${bind:-localhost}"
   : ${UID:=$(id -u)}
@@ -127,13 +133,12 @@ EOF
     proxy_cmd="bash -c '{ echo %h; cat; } |nc -U $sockfile'"
     pre_cmd+="cd ${sock%/*};rm -f $sock;"
   }
-  [ "$remote" ] || {
+  [ "$remote_host" ] || {
     printf '%s\n' "Connect: ${connect_cmd##* }"
     # early cleanup socket
     [ "$sockfile" ] && ( (sleep 0.5;[ -S "$sockfile" ] && rm -f "$sockfile") & ) &
     wait
     $connect_cmd
-    exit
   }
   [ "$passfile" ] && {
     [ "$passfile" = - ] && { read -s -p "Password: " password;echo; } || password=$(cat "$passfile")
