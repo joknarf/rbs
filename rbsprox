@@ -8,11 +8,13 @@
 
 usage() {
   printf '%s' 'usage: 
-  server: rbs -r <remote> [-p <port>|-S <sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-b <bind>] [-c config] [-C <command>] [-a] [-s]
-  client: rbs [-p port|-S <sock>] [-T <ttysrname>]
+  server: rbsprox -r <remote> [-R <remotename>] [-p proxy] [-P proxyname] [-c config] [-a]
+  client: rbsprox <target>
 
   -r remote     : ip/host to serve shell/command (optionally prefixed with user@)
   -R remotename : ssh Host alias to connect to remote (remote)
+  -p proxy      : proxy to connect to remote (optionally prefixed with user@) (localhost)
+  -P proxyname  : ssh Host alias to connect to proxy (proxy)
   -c config     : config file to load (~/.rbs.conf)
   -a            : always serve (relaunch on disconnect)
 
@@ -65,12 +67,15 @@ EOF
   remotename=remote
   always=false
   command="proxy"
+  proxyname=proxy
   [ -f ~/.rbs.conf ] && . ~/.rbs.conf
-  while getopts 'hac:r:R:' opt;do
+  while getopts 'hac:r:R:p:P:' opt;do
     case "$opt" in
       c) . "$OPTARG";;
       r) remote="$OPTARG";;
       R) remotename="$OPTARG";;
+      p) proxy="$OPTARG";;
+      P) proxyname="$OPTARG";;
       a) always=true;;
       h|\?) usage;;
     esac
@@ -105,7 +110,7 @@ wait
 EOF
   )
   remote_cmd=$( cat - <<EOF
-echo "$command -> \$USER@$remote[$remotename]" >&2
+echo "$command:${proxy:-localhost}[$proxyname] -> \$USER@$remote[$remotename]" >&2
 cd \${XDG_RUNTIME_DIR:-/tmp}
 cat - <<'EOZ' >~/.ssh/rbs_proxy
 Host *
@@ -122,15 +127,17 @@ EOF
   )
   cat - >~/.ssh/rbs <<EOF
 Host $remotename
+  LogLevel ERROR
   Hostname $remote
   RequestTTY no
   RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"$remote_cmd"))
   $user
 EOF
 }
+
 [ "$_rbs_post" ] || {
   rbs_pre "$@"
-  export remotename remote always 
+  export remotename remote always proxy proxyname
   _rbs_post=1 exec bash <$0
 }
 umask 077
@@ -155,12 +162,24 @@ serve() {
     mkfifo $fifo
     cat - <<EOF >~/.ssh/rbs
 Host $host.
+  LogLevel ERROR
   Hostname $remote
   RequestTTY no
   RemoteCommand cd \${XDG_RUNTIME_DIR:-/tmp};umask 077;exec nc -lU $sock
   #RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"cd \${XDG_RUNTIME_DIR:-/tmp};umask 077;exec nc -lU $sock")) # zombie ?
 EOF
-    (nc "$host" 22 <$fifo | ssh "$host." $ssh_conf >$fifo) &
+    [ "$proxy" ] && {
+      cat - <<EOF >>~/.ssh/rbs
+Host $proxyname
+  LogLevel ERROR
+  Hostname $proxy
+  RequestTTY no
+  RemoteCommand nc "$host" 22
+EOF
+    (ssh "$proxyname" $ssh_conf <$fifo | ssh "$host." $ssh_conf >$fifo) &
+    } || {
+      (nc "$host" 22 <$fifo | ssh "$host." $ssh_conf >$fifo) &
+    }
     sleep 0.5
     rm -f $fifo
     > ~/.ssh/rbs
