@@ -10,7 +10,7 @@
 
 usage() {
   printf '%s' "usage: 
-  server: rbs -r [user@]<remote>[:<port>|:<sock>] [-P <passfile|->] [-t ttyserver] [-T <ttysrvname>] [-R <remotename>] [-b <bind>] [-c config] [-C <command>] [-a] [-s]
+  server: rbs -r [<user>@]<remote>[:<port>|:<sock>] [-P <passfile|->] [-t [<user>@]<ttyserver>] [-T <ttysrvname>] [-R <remotename>] [-b <bind>] [-c config] [-C <command>] [-a] [-s]
   client: rbs [-p port|-S <sock>] [-T <ttysrname>]
 
   -r remote     : ip/host to serve shell/command
