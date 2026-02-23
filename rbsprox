@@ -145,6 +145,7 @@ EOF
   export remotename remote always proxy proxyname
   _rbs_post=1 exec bash <$0
 }
+unset _rbs_post
 umask 077
 grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config 2>/dev/null && ssh_conf='' || ssh_conf='-F rbs'
 cd ~/.ssh
@@ -199,10 +200,11 @@ serve_always() {
   done
 }
 
+trap 'trap - INT TERM;kill 0' INT TERM
+
 $always && {
   serve_always
   exit
 }
 
-trap 'trap - INT TERM;kill 0' INT TERM
 serve
