@@ -16,7 +16,7 @@ usage() {
   -p proxy      : proxy to connect to remote (optionally prefixed with user@) (localhost)
   -P proxyname  : ssh Host alias to connect to proxy (proxy)
   -c config     : config file to load (~/.rbs.conf)
-  -f fifo       : fixed fifo basename to use (default random)
+  -f fifo       : fixed fifo basename to use, [A-Za-z0-9] characters only (default random)
   -a            : always serve (relaunch on disconnect)
 
 in your ~/.ssh/config add Include ~/.ssh/rbs (or ssh will be run with -F ~/.ssh/rbs)
@@ -112,7 +112,7 @@ EOF
   )
   printf "ProxyCommand ssh %s 'bash <(base64 -d <<<%s) %%h'\n\n" "$remote" "$(base64 -w 0 <<<"$proxy_cmd")"
   remote_cmd=$(cat - <<EOF
-echo "$command:${proxy:-localhost}[$proxyname] -> \$USER@$remote[$remotename]" >&2
+echo "$command:${proxy:-localhost}[$proxyname] -> $fifo_prox -> \$USER@$remote[$remotename]" >&2
 umask 077
 cd \${XDG_RUNTIME_DIR:-/tmp}
 cat - <<'EOZ' >~/.ssh/rbs_proxy
