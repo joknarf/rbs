@@ -1,0 +1,223 @@
+#!/bin/bash
+# reverse tunel over ssh stdio
+# from a host, redirect to host:port and expose on remote port or unix socket through host ssh connection
+# connnect to it from remote host
+# example:
+#   tunel from host:22 to remote:4444: rbs -r <remote>:4444 -f localhost:22 
+#   connect to host from remote: ssh localhost -p 4444
+#
+# rbs uses the ssh connection issued from host stdin/stdout to act as network transport, 
+# so it works even if ssh is the only allowed traffic to the remote host, and no traffic allowed from remote host to host. 
+# no particular sshd configuration required on remote host, and no need to open any port on host.
+#
+# Author: joknarf
+
+usage() {
+  printf '%s' "usage: 
+  server: rbstunel -r [<user>@]<remote>[:<port>|:<sock>] -f [fwdserver:fwdport] [-t [<user>@]<tgtserver>[:port]] [-T <tgtsrvname>] [-R <remotename>] [-b <bind>] [-c config] [-a]
+  client: rbs [<remote>][:<port>|:<sock>] -T <tgtsrvname>]
+
+  -r remote     : ip/host to serve shell/command
+  user@         : optional ssh user for remote
+  :sock         : unix socket file to listen/connect on remote (/tmp/.rbs.<uid>.<tgtsrvname>.sock)
+  :port         : port to listen on remote (4444) instead of unix socket
+  -f fwdserver  : host to forward to (localhost)
+  fwdport       : port to forward to (22)
+  -t tgtserver  : host to expose host port redirection (localhost) (optionally prefixed with user@)
+  -T tgtsrvname : ssh Host alias to connect to tgtserver (local)
+  -R remotename : ssh Host alias to connect to remote (remote)
+  -b bind       : bind/connect address on remote (localhost)
+  -c config     : config file to load (~/.rbs.conf)
+  -x            : reverse ssh proxy (ssh -F ~/.ssh/rbs_proxy on remote to use proxy)
+  -a            : always serve (relaunch on disconnect)
+
+in your ~/.ssh/config add Include ~/.ssh/rbs (or ssh will be run with -F ~/.ssh/rbs)
+"
+  exit 0
+}
+
+rbs_pre() {
+  logo=$(base64 -d <<'EOF'
+G1szODs1OzE4NG0gG1szOW0bWzM4OzU7MjE0bSAbWzM5bRtbMzg7NTsyMTRtIBtbMzltG1szODs1
+OzIwOG0gG1szOW0bWzM4OzU7MjA4bSAbWzM5bRtbMzg7NTsyMDNtIBtbMzltG1szODs1OzIwM20g
+G1szOW0bWzM4OzU7MTk4bSAbWzM5bRtbMzg7NTsxOThtIBtbMzltG1szODs1OzE5OW1fG1szOW0b
+WzM4OzU7MTk5bV8bWzM5bRtbMzg7NTsxNjRtIBtbMzltG1szODs1OzE2NG0gG1szOW0bWzM4OzU7
+MTY0bSAbWzM5bRtbMzg7NTsxMjltIBtbMzltG1szODs1OzEyOW0gG1szOW0bWzM4OzU7OTNtIBtb
+MzltG1szODs1OzkzbSAbWzM5bRtbMzg7NTs2M20gG1szOW0bWzM4OzU7NjNtG1szOW0KG1szODs1
+OzIwOG0gG1szOW0bWzM4OzU7MjA4bSAbWzM5bRtbMzg7NTsyMDNtIBtbMzltG1szODs1OzIwM21f
+G1szOW0bWzM4OzU7MTk4bV8bWzM5bRtbMzg7NTsxOThtXxtbMzltG1szODs1OzE5OW1fG1szOW0b
+WzM4OzU7MTk5bV8bWzM5bRtbMzg7NTsxNjRtLxtbMzltG1szODs1OzE2NG0gG1szOW0bWzM4OzU7
+MTY0bS8bWzM5bRtbMzg7NTsxMjltXxtbMzltG1szODs1OzEyOW0gG1szOW0bWzM4OzU7OTNtIBtb
+MzltG1szODs1OzkzbV8bWzM5bRtbMzg7NTs2M21fG1szOW0bWzM4OzU7NjNtXxtbMzltG1szODs1
+OzMzbV8bWzM5bRtbMzg7NTszM21fG1szOW0bWzM4OzU7MzltG1szOW0KG1szODs1OzIwM20gG1sz
+OW0bWzM4OzU7MTk4bSAbWzM5bRtbMzg7NTsxOThtLxtbMzltG1szODs1OzE5OW0gG1szOW0bWzM4
+OzU7MTk5bV8bWzM5bRtbMzg7NTsxNjRtXxtbMzltG1szODs1OzE2NG1fG1szOW0bWzM4OzU7MTY0
+bS8bWzM5bRtbMzg7NTsxMjltIBtbMzltG1szODs1OzEyOW1fG1szOW0bWzM4OzU7OTNtXxtbMzlt
+G1szODs1OzkzbSAbWzM5bRtbMzg7NTs2M21cG1szOW0bWzM4OzU7NjNtLxtbMzltG1szODs1OzMz
+bSAbWzM5bRtbMzg7NTszM21fG1szOW0bWzM4OzU7MzltXxtbMzltG1szODs1OzM5bV8bWzM5bRtb
+Mzg7NTs0NG0vG1szOW0bWzM4OzU7NDRtG1szOW0KG1szODs1OzE5OW0gG1szOW0bWzM4OzU7MTk5
+bS8bWzM5bRtbMzg7NTsxNjRtIBtbMzltG1szODs1OzE2NG0vG1szOW0bWzM4OzU7MTY0bSAbWzM5
+bRtbMzg7NTsxMjltIBtbMzltG1szODs1OzEyOW0vG1szOW0bWzM4OzU7OTNtIBtbMzltG1szODs1
+OzkzbS8bWzM5bRtbMzg7NTs2M21fG1szOW0bWzM4OzU7NjNtLxtbMzltG1szODs1OzMzbSAbWzM5
+bRtbMzg7NTszM20oG1szOW0bWzM4OzU7MzltXxtbMzltG1szODs1OzM5bV8bWzM5bRtbMzg7NTs0
+NG0gG1szOW0bWzM4OzU7NDRtIBtbMzltG1szODs1OzQ5bSkbWzM5bRtbMzg7NTs0OW0gG1szOW0b
+WzM4OzU7NDhtG1szOW0KG1szODs1OzE2NG0vG1szOW0bWzM4OzU7MTY0bV8bWzM5bRtbMzg7NTsx
+MjltLxtbMzltG1szODs1OzEyOW0gG1szOW0bWzM4OzU7OTNtIBtbMzltG1szODs1OzkzbS8bWzM5
+bRtbMzg7NTs2M21fG1szOW0bWzM4OzU7NjNtLhtbMzltG1szODs1OzMzbV8bWzM5bRtbMzg7NTsz
+M21fG1szOW0bWzM4OzU7MzltXxtbMzltG1szODs1OzM5bS8bWzM5bRtbMzg7NTs0NG1fG1szOW0b
+WzM4OzU7NDRtXxtbMzltG1szODs1OzQ5bV8bWzM5bRtbMzg7NTs0OW1fG1szOW0bWzM4OzU7NDht
+LxtbMzltG1szODs1OzQ4bSAbWzM5bRtbMzg7NTs4M20gG1szOW0bWzM4OzU7ODNtG1szOW0KG1sz
+ODs1OzEyOW0gG1szOW0bWzM4OzU7OTNtIBtbMzltG1szODs1OzkzbSAbWzM5bRtbMzg7NTs2M20g
+G1szOW0bWzM4OzU7NjNtIBtbMzltG1szODs1OzMzbSAbWzM5bRtbMzg7NTszM20gG1szOW0bWzM4
+OzU7MzltIBtbMzltG1szODs1OzM5bSAbWzM5bRtbMzg7NTs0NG0gG1szOW0bWzM4OzU7NDRtIBtb
+MzltG1szODs1OzQ5bSAbWzM5bRtbMzg7NTs0OW0gG1szOW0bWzM4OzU7NDhtIBtbMzltG1szODs1
+OzQ4bSAbWzM5bRtbMzg7NTs4M20gG1szOW0bWzM4OzU7ODNtIBtbMzltG1szODs1OzExOW0gG1sz
+OW0bWzM4OzU7MTE4bSAbWzM5bRtbMzg7NTsxNTRtG1szOW0K
+EOF
+)
+  umask 077
+  printf '%s\n' "$logo"
+  port=""
+  tgtserver=localhost
+  tgtsrvname=local
+  remotename=remote
+  always=false
+  use_ssh=false
+  fwdserver="localhost"
+  fwdport="22"
+  [ -f ~/.rbs.conf ] && . ~/.rbs.conf
+  while getopts 'hseac:r:R:P:S:C:t:T:b:f:' opt;do
+    case "$opt" in
+      c) . "$OPTARG";;
+      C) command="$OPTARG";;
+      r) remote_host="$OPTARG";;
+      t) tgtserver="$OPTARG";;
+      P) passfile="$OPTARG";;
+      T) tgtsrvname="$OPTARG";;
+      R) remotename="$OPTARG";;
+      a) always=true;;
+      s) use_ssh=true;;
+      e) use_expect=true;;
+      b) bind="$OPTARG";;
+      f) fwdserver="$OPTARG";;
+      h|\?) usage;;
+    esac
+  done
+  shift $((OPTIND-1))
+  [ "$1" ] && remote="$1" || remote=localhost
+  [ "$remote_host" ] && remote="$remote_host"
+  [[ $remote = *:* ]] && {
+    remote_port="${remote##*:}"
+    [[ $remote_port =~ ^[0-9]+$ ]] && port=$remote_port || sock=$remote_port
+  }
+  remote=${remote%%:*}
+  [ "$remote" ] || remote=localhost
+  
+  [[ $remote = *@* ]] && user="User ${remote%@*}" || user=""
+  remote=${remote##*@}
+  [ "$bind" ] && port="${port:-4444}"
+  bind="${bind:-localhost}"
+  : ${UID:=$(id -u)}
+  sockfile=${sock:-"/tmp/.rbs.$UID.$tgtsrvname.sock"}
+  sock=${sock:-"/tmp/.rbs.\$UID.$tgtsrvname.sock"}
+  [ ! "$remote_host" ] && [ ! -e "$sockfile" ] && port="${port:-4444}"
+  ttyuser=""
+  tuser="$USER"
+  [[ $tgtserver = *@* ]] && tuser=${tgtserver%@*} && ttyuser="User $tuser"
+  tgtserver=${tgtserver##*@}
+  [[ $tgtserver = *:* ]] && ttyport="${tgtserver##*:}"
+  tgtserver=${tgtserver%%:*}
+  [ "$tgtserver" ] || tgtserver=localhost
+  [ "$tgtserver" != localhost ] && use_ssh=true
+  if [[ "$fwdserver" = *:* ]]; then
+    fwdport="${fwdserver##*:}"
+    fwdserver="${fwdserver%%:*}"
+  fi
+  pre_cmd=": \${UID:=\$(id -u)};echo \"$tuser@$tgtserver[$tgtsrvname]:$fwdserver:$fwdport -> \$USER@$remote[$remotename]:${port:-$sock}\" >&2;"
+  [ "$port" ] && {
+    connect_cmd="exec nc $remote $port"
+    listen_cmd="nc -l $bind $port"
+  } || {
+    connect_cmd="exec nc -U $sockfile"
+    listen_cmd="nc -lU ${sock##*/},mode=600"
+    pre_cmd+="cd ${sock%/*};rm -f $sock;"
+  }
+
+  tty_cmd="nc $fwdserver $fwdport"
+  cat - >~/.ssh/rbs <<EOF
+Host $remotename
+  Hostname $remote
+  RequestTTY no
+  RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"$pre_cmd pkill -U \$UID -f \"^$listen_cmd\";exec $listen_cmd"))
+  $user
+
+Host $remotename.cleanup
+  Hostname $remote
+  RequestTTY no
+  RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"pkill -U \$UID -f \"^$listen_cmd\""))
+  $user
+
+Host $tgtsrvname
+  Hostname $tgtserver
+  RequestTTY no
+  #RemoteCommand bash <(base64 -d <<<$(base64 -w0 <<<"$tty_cmd"))
+  RemoteCommand $tty_cmd
+  $ttyuser
+
+EOF
+}
+[ "$_rbs_post" ] || {
+  rbs_pre "$@"
+  export remotename tgtsrvname always use_ssh ssh_proxy use_expect fwdserver fwdport
+  _rbs_post=1 exec bash <$0
+}
+unset _rbs_post
+grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config 2>/dev/null && ssh_conf='' || ssh_conf='-F rbs'
+cd ~/.ssh
+ssh_config="$(cat rbs)"
+fifo="$(mktemp -u)"
+trap "rm -f $fifo ~/.ssh/.bashrc;> ~/.ssh/rbs" EXIT
+
+serve() {  
+  rm -f $fifo
+  mkfifo $fifo || exit 1
+  $use_ssh && coproc PROD { exec ssh $tgtsrvname $ssh_conf <$fifo; } \
+           || coproc PROD { exec nc $fwdserver $fwdport <$fifo; } 
+  printf '%s' "$ssh_config" >rbs
+  (
+    sleep 0.5
+    rm -f $fifo
+    >rbs
+  ) &
+  ssh $remotename $ssh_conf >$fifo <&"${PROD[0]}"
+  kill "$PROD_PID" 2>/dev/null
+  wait
+}
+
+serve_always() {
+  while true;do
+    serve
+    sleep 1 & wait
+  done
+}
+
+cleanup() {
+  trap - INT TERM
+  echo "Cleaning up..." >&2
+  echo "$ssh_config" >~/.ssh/rbs
+  ssh $remotename.cleanup $ssh_conf
+  rm -f $fifo ~/.ssh/.bashrc
+  > ~/.ssh/rbs
+  kill 0
+  exit
+}
+
+trap cleanup INT TERM
+
+$always && {
+  serve_always
+  exit
+}
+
+
+serve 
