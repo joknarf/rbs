@@ -4,9 +4,9 @@
 
 
 # rbs
-Remote reverse interactive shell/command/ssh proxy over ssh stdio
+Remote reverse interactive shell/command/ssh proxy/tunnel over ssh stdio
 
-Just use ssh stdin/stdout to serve local shell/command/proxy to a remote server unix socket or ip port
+Just use ssh stdin/stdout to serve local shell/command/proxy/tunnel to a remote server unix socket or ip port
 
 If a server can connect to a host through ssh, the host can connect back to the server using this ssh connection (no ingres ip port to open on server or even sshd, no TCPForward, no GatewayPort, no Tunnel needed)
 
@@ -92,6 +92,15 @@ local$ rbsprox -r <remote>
 remote$ rbsprox <anyhost>
 # <remote> -> ask proxy for <anyhost> -> nc -> <local> -> <anyhost>
 # or use ssh -F ~/.ssh/rbs_proxy <anyhost>
+```
+
+## Tunnel
+
+on a server forward local/remote port and server it on remote host.
+```
+local$ rbstun -r remote:4444 -f localhost:22
+remote$ ssh localhsot -p 4444
+=> connect to "local" from remote
 ```
 
 ## Concepts
