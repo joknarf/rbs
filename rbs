@@ -109,20 +109,22 @@ EOF
   done
   shift $((OPTIND-1))
   [ "$1" ] && remote="$1" || remote=localhost
-  [ "$remote_host" ] && remote="$remote_host" || : ${remote:=":/tmp/.rbs.$UID.$ttysrvname.sock"}
+  [ "$remote_host" ] && remote="$remote_host"
   [[ $remote = *:* ]] && {
     remote_port="${remote##*:}"
     [[ $remote_port =~ ^[0-9]+$ ]] && port=$remote_port || sock=$remote_port
   }
   remote=${remote%%:*}
+  [ "$remote" ] || remote=localhost
+  
+  [[ $remote = *@* ]] && user="User ${remote%@*}" || user=""
+  remote=${remote##*@}
   [ "$bind" ] && port="${port:-4444}"
   bind="${bind:-localhost}"
   : ${UID:=$(id -u)}
   sockfile=${sock:-"/tmp/.rbs.$UID.$ttysrvname.sock"}
   sock=${sock:-"/tmp/.rbs.\$UID.$ttysrvname.sock"}
   [ ! "$remote_host" ] && [ ! -e "$sockfile" ] && port="${port:-4444}"
-  [[ $remote = *@* ]] && user="User ${remote%@*}" || user=""
-  remote=${remote##*@}
   ttyuser=""
   tuser="$USER"
   [[ $ttyserver = *@* ]] && tuser=${ttyserver%@*} && ttyuser="User $tuser"
