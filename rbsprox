@@ -93,8 +93,8 @@ EOF
   : ${UID:=$(id -u)}
   [[ $remote = *@* ]] && user="User ${remote%@*}" || user=""
   remote=${remote##*@}
-  : ${fifo_prox:=$(mktemp -ut XXXXXXXXXXX)}
-  fifo_prox="${fifo_prox##*/}"
+  : ${fifo_prox:=$(mktemp -up.)}
+  fifo_prox="${fifo_prox##*.}"
   proxy_cmd=$(cat - <<EOF
 cd \${XDG_RUNTIME_DIR:-/tmp}
 [ -p $fifo_prox ] || { echo "No proxy found" >&2; exit 1; }
