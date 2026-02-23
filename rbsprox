@@ -18,6 +18,7 @@ usage() {
   -P proxyname  : ssh Host alias to connect to proxy (proxy)
   -c config     : config file to load (~/.rbs.conf)
   -f fifo       : fixed fifo filename to use (default random)
+  -t tunelport  : tunel local port to forward to remote (default 22)
   -a            : always serve (relaunch on disconnect)
 
 in your ~/.ssh/config add Include ~/.ssh/rbs (or ssh will be run with -F ~/.ssh/rbs)
@@ -71,7 +72,7 @@ EOF
   command="proxy"
   proxyname=proxy
   [ -f ~/.rbs.conf ] && . ~/.rbs.conf
-  while getopts 'hac:r:R:p:P:f:' opt;do
+  while getopts 'hac:r:R:p:P:f:t:' opt;do
     case "$opt" in
       c) . "$OPTARG";;
       r) remote="$OPTARG";;
@@ -79,11 +80,16 @@ EOF
       p) proxy="$OPTARG";;
       P) proxyname="$OPTARG";;
       f) fifo_prox="$OPTARG";;
+      t) tunelport="$OPTARG";;
       a) always=true;;
       h|\?) usage;;
     esac
   done
   shift $((OPTIND-1))
+  [ "$tunelport" ] && {
+    : ${target:=localhost}
+    exec bash <(base64 -d <~/.ssh/rbs_proxy.cmd;echo echo \$PWD/\$s) $target $tunelport
+  }
   [ "$1" ] && {
     target="$1"
     shift
@@ -105,23 +111,24 @@ printf "Waiting proxy..." >&2
 s=\$(mktemp -up.)
 s=\${s##*.}
 rm -f \$s
-echo \$1:\$s >$fifo_prox
+echo \$1:\$2:\$s >$fifo_prox
 trap 'sleep 2;[ -S \$s ] && nc --send-only -U \$s <<<"" && rm -f \$s;exit' INT TERM
 while [ ! -S \$s ];do sleep 0.1;done
-( ( sleep 0.5; rm -f \$s ) & exit 0 ) & wait
+( ( sleep 5; rm -f \$s ) >/dev/null 2>&1 </dev/null & exit 0 ) & wait
 printf "ok\n" >&2
-exec nc -U \$s
+[ "\$3" = c ] && exec nc -U \$s
 EOF
   )
-  printf "ProxyCommand ssh %s 'bash <(base64 -d <<<%s) %%h'\n\n" "$remote" "$(base64 -w 0 <<<"$proxy_cmd")"
+  printf "ProxyCommand ssh %s 'bash <(base64 -d <<<%s) %%h %%p c'\n\n" "$remote" "$(base64 -w 0 <<<"$proxy_cmd")"
   remote_cmd=$(cat - <<EOF
 echo "$command:${proxy:-localhost}[$proxyname] -> \$USER@$remote[$remotename][$fifo_prox]" >&2
 umask 077
-cd \${XDG_RUNTIME_DIR:-/tmp}
+cat - <<<$(base64 -w0 <<<"$proxy_cmd") >~/.ssh/rbs_proxy.cmd
 cat - <<'EOZ' >~/.ssh/rbs_proxy
 Host *
-  ProxyCommand bash <(base64 -d <<<$(base64 -w0 <<<"$proxy_cmd")) %h
+  ProxyCommand bash <(base64 -d <~/.ssh/rbs_proxy.cmd) %h %p c
 EOZ
+cd \${XDG_RUNTIME_DIR:-/tmp}
 rm -f $fifo_prox
 mkfifo $fifo_prox
 trap 'rm -f $fifo_prox' EXIT
@@ -161,6 +168,8 @@ serve() {
     [ ! "$h" ] && continue
     printf -v h '%q' "$h"
     host="${h%:*}"
+    port="${host##*:}"
+    host="${host%%:*}"
     sock="${h##*:}"
     [[ "$host" =~ ^[0-9A-Za-z._-]+$ ]] || { echo "Invalid host name: $host" >&2; continue; }
     [[ "$sock" =~ ^[0-9A-Za-z]+$ ]] || { echo "Invalid sock name: $sock" >&2; continue; }
@@ -181,10 +190,10 @@ Host $proxyname
   LogLevel ERROR
   Hostname $proxy
   RequestTTY no
-  RemoteCommand nc "$host" 22
+  RemoteCommand nc "$host" $port
 EOF
     (ssh "$proxyname" $ssh_conf <$fifo | ssh "$host." $ssh_conf >$fifo) &
-    } || (nc "$host" 22 <$fifo | ssh "$host." $ssh_conf >$fifo) &
+    } || (nc "$host" $port <$fifo | ssh "$host." $ssh_conf >$fifo) &
     sleep 0.5
     rm -f $fifo
     > ~/.ssh/rbs
