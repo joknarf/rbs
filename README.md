@@ -99,7 +99,7 @@ remote$ rbsprox <anyhost>
 on a server forward local/remote port and serve it on remote host.
 ```
 local$ rbstun -r remote:4444 -f localhost:22
-remote$ ssh localhsot -p 4444
+remote$ ssh localhost -p 4444
 => connect to "local" from remote
 ```
 
