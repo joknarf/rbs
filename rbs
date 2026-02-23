@@ -1,10 +1,14 @@
 #!/bin/bash
-# tty forwarder/relay over ssh
-# serves an interactive shell/command on a remote host using ssh
+# reverse shell/command/proxy over ssh stdio
+# from a host, serves an interactive shell/command on a remote host using simple ssh
 # connnect to it from remote host
 # example:
 #   serve a shell on host to remote: rbs -r <remote> 
 #   connect to host from remote: rbs
+#
+# rbs uses the ssh connection issued from host stdin/stdout to act as network transport, 
+# so it works even if ssh is the only allowed traffic to the remote host, and no traffic allowed from remote host to host. 
+# It can also be used as a reverse ssh proxy to access other hosts from the remote host through host.
 #
 # Author: joknarf
 

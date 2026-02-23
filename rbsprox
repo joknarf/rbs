@@ -1,5 +1,6 @@
 #!/bin/bash
-# reverse ssh proxy
+# reverse ssh proxy over ssh stdio
+# from a host, serve a proxy on host to remote, and use proxy to host from remote to anyhost through host ssh connection
 # example:
 #   serve a proxy on host to remote: rbsprox -r <remote> 
 #   use proxy to host from remote to anyhost: rbsprox <anyhost>  
