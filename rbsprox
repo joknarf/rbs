@@ -99,8 +99,8 @@ EOF
 cd \${XDG_RUNTIME_DIR:-/tmp}
 [ -p $fifo_prox ] || { echo "No proxy found" >&2; exit 1; }
 printf "Waiting proxy..." >&2
-s=\$(mktemp -up. -t XXXXXXXXXXX)
-s=\${s#./}
+s=\$(mktemp -up.)
+s=\${s##*.}
 rm -f \$s
 echo \$1:\$s >$fifo_prox
 trap 'sleep 2;[ -S \$s ] && nc --send-only -U \$s <<<"" && rm -f \$s;exit' INT TERM
