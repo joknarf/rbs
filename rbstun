@@ -1,9 +1,9 @@
 #!/bin/bash
-# reverse tunel over ssh stdio
+# reverse tunnel over ssh stdio
 # from a host, redirect to host:port and expose on remote port or unix socket through host ssh connection
 # connnect to it from remote host
 # example:
-#   tunel from host:22 to remote:4444: rbs -r <remote>:4444 -f localhost:22 
+#   tunel from host:22 to remote:4444: rbstun -r <remote>:4444 -f localhost:22 
 #   connect to host from remote: ssh localhost -p 4444
 #
 # rbs uses the ssh connection issued from host stdin/stdout to act as network transport, 
@@ -14,8 +14,8 @@
 
 usage() {
   printf '%s' "usage: 
-  server: rbstunel -r [<user>@]<remote>[:<port>|:<sock>] -f [fwdserver:fwdport] [-t [<user>@]<tgtserver>[:port]] [-T <tgtsrvname>] [-R <remotename>] [-b <bind>] [-c config] [-a]
-  client: rbs [<remote>][:<port>|:<sock>] -T <tgtsrvname>]
+  server: rbstun -r [<user>@]<remote>[:<port>|:<sock>] -f [fwdserver:fwdport] [-t [<user>@]<tgtserver>[:port]] [-T <tgtsrvname>] [-R <remotename>] [-b <bind>] [-c config] [-a]
+  client: rbstun [<remote>][:<port>|:<sock>] -T <tgtsrvname>]
 
   -r remote     : ip/host to serve shell/command
   user@         : optional ssh user for remote
