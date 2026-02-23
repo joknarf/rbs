@@ -96,7 +96,7 @@ remote$ rbsprox <anyhost>
 
 ## Tunnel
 
-on a server forward local/remote port and server it on remote host.
+on a server forward local/remote port and serve it on remote host.
 ```
 local$ rbstun -r remote:4444 -f localhost:22
 remote$ ssh localhsot -p 4444
