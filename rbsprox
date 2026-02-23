@@ -97,30 +97,29 @@ EOF
   fifo_prox="${fifo_prox##*/}"
   proxy_cmd=$(cat - <<EOF
 cd \${XDG_RUNTIME_DIR:-/tmp}
-[ -p $fifo_prox ] || { echo "Proxy not available" >&2; exit 1; }
+[ -p $fifo_prox ] || { echo "No proxy found" >&2; exit 1; }
 printf "Waiting proxy..." >&2
 s=\$(mktemp -up. -t XXXXXXXXXXX)
 s=\${s#./}
 rm -f \$s
 echo \$1:\$s >$fifo_prox
-trap 'sleep 2;[ -S \$s ] && nc --send-only -U \$s <<<exit && rm -f \$s;exit' INT TERM
+trap 'sleep 2;[ -S \$s ] && nc --send-only -U \$s <<<"" && rm -f \$s;exit' INT TERM
 while [ ! -S \$s ];do sleep 0.1;done
 ( ( sleep 0.5; rm -f \$s ) & exit 0 ) & wait
 printf "ok\n" >&2
 exec nc -U \$s
-wait
 EOF
   )
   printf "ProxyCommand ssh %s 'bash <(base64 -d <<<%s) %%h'\n\n" "$remote" "$(base64 -w 0 <<<"$proxy_cmd")"
   remote_cmd=$(cat - <<EOF
 echo "$command:${proxy:-localhost}[$proxyname] -> \$USER@$remote[$remotename]" >&2
+umask 077
 cd \${XDG_RUNTIME_DIR:-/tmp}
 cat - <<'EOZ' >~/.ssh/rbs_proxy
 Host *
   ProxyCommand bash <(base64 -d <<<$(base64 -w0 <<<"$proxy_cmd")) %h
 EOZ
 rm -f $fifo_prox
-umask 077
 mkfifo $fifo_prox
 trap 'rm -f $fifo_prox' EXIT
 (echo >$fifo_prox) & # init fifo to have tail output to get kernel signal on exit
@@ -153,6 +152,7 @@ export TMPDIR="${XDG_RUNTIME_DIR:-/tmp}"
 serve() {
   cat - >~/.ssh/rbs <<<"$ssh_config"
   coproc PROD { exec ssh $remotename $ssh_conf; }
+  sleep 0.5;>~/.ssh/rbs
   while read h;do
     [ ! "$h" ] && continue
     printf -v h '%q' "$h"
@@ -180,9 +180,7 @@ Host $proxyname
   RemoteCommand nc "$host" 22
 EOF
     (ssh "$proxyname" $ssh_conf <$fifo | ssh "$host." $ssh_conf >$fifo) &
-    } || {
-      (nc "$host" 22 <$fifo | ssh "$host." $ssh_conf >$fifo) &
-    }
+    } || (nc "$host" 22 <$fifo | ssh "$host." $ssh_conf >$fifo) &
     sleep 0.5
     rm -f $fifo
     > ~/.ssh/rbs
