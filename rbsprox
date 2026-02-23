@@ -112,7 +112,7 @@ EOF
   )
   printf "ProxyCommand ssh %s 'bash <(base64 -d <<<%s) %%h'\n\n" "$remote" "$(base64 -w 0 <<<"$proxy_cmd")"
   remote_cmd=$(cat - <<EOF
-echo "$command:${proxy:-localhost}[$proxyname] ->  \$USER@$remote[$remotename][$fifo_prox]" >&2
+echo "$command:${proxy:-localhost}[$proxyname] -> \$USER@$remote[$remotename][$fifo_prox]" >&2
 umask 077
 cd \${XDG_RUNTIME_DIR:-/tmp}
 cat - <<'EOZ' >~/.ssh/rbs_proxy
