@@ -90,7 +90,7 @@ EOF
   ssh_proxy=false
   use_expect=false
   [ -f ~/.rbs.conf ] && . ~/.rbs.conf
-  while getopts 'hseaxc:r:R:p:P:S:C:t:T:b:' opt;do
+  while getopts 'hseaxc:r:R:P:S:C:t:T:b:' opt;do
     case "$opt" in
       c) . "$OPTARG";;
       C) command="$OPTARG";;
