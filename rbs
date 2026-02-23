@@ -104,7 +104,7 @@ EOF
     esac
   done
   shift $((OPTIND-1))
-  [ "$1" ] && remote="$1"
+  [ "$1" ] && remote="$1" || remote=localhost
   [ "$remote_host" ] && remote="$remote_host" || : ${remote:=":/tmp/.rbs.$UID.$ttysrvname.sock"}
   [[ $remote = *:* ]] && {
     remote_port="${remote##*:}"
@@ -116,7 +116,7 @@ EOF
   : ${UID:=$(id -u)}
   sockfile=${sock:-"/tmp/.rbs.$UID.$ttysrvname.sock"}
   sock=${sock:-"/tmp/.rbs.\$UID.$ttysrvname.sock"}
-  [ ! "$remote" ] && [ ! -e "$sockfile" ] && port="${port:-4444}"
+  [ ! "$remote_host" ] && [ ! -e "$sockfile" ] && port="${port:-4444}"
   [[ $remote = *@* ]] && user="User ${remote%@*}" || user=""
   remote=${remote##*@}
   ttyuser=""
@@ -126,7 +126,7 @@ EOF
   [ "$ttyserver" != localhost ] && use_ssh=true
   pre_cmd=": \${UID:=\$(id -u)};echo \"$tuser@$ttyserver[$ttysrvname]:$command -> \$USER@$remote[$remotename]:${port:-$sock}\" >&2;"
   [ "$port" ] && {
-    connect_cmd="exec socat STDIO,raw,echo=0 TCP:${remote:-localhost}:$port"
+    connect_cmd="exec socat STDIO,raw,echo=0 TCP:$remote:$port"
     listen_cmd="socat -d0 - TCP-LISTEN:$port,bind=$bind,reuseaddr"
     proxy_cmd="bash -c '{ echo %h; cat; } |nc localhost $port'"
   } || {
