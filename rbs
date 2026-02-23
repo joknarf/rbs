@@ -73,6 +73,7 @@ OzQ4bSAbWzM5bRtbMzg7NTs4M20gG1szOW0bWzM4OzU7ODNtIBtbMzltG1szODs1OzExOW0gG1sz
 OW0bWzM4OzU7MTE4bSAbWzM5bRtbMzg7NTsxNTRtG1szOW0K
 EOF
 )
+  umask 077
   printf '%s\n' "$logo"
   port=""
   password="$RB_PASS"
@@ -125,7 +126,7 @@ EOF
   [ "$ttyserver" != localhost ] && use_ssh=true
   pre_cmd=": \${UID:=\$(id -u)};echo \"$tuser@$ttyserver[$ttysrvname]:$command -> \$USER@$remote[$remotename]:${port:-$sock}\" >&2;"
   [ "$port" ] && {
-    connect_cmd="exec socat STDIO,raw,echo=0 TCP:$remote:$port"
+    connect_cmd="exec socat STDIO,raw,echo=0 TCP:${remote:-localhost}:$port"
     listen_cmd="socat -d0 - TCP-LISTEN:$port,bind=$bind,reuseaddr"
     proxy_cmd="bash -c '{ echo %h; cat; } |nc localhost $port'"
   } || {
@@ -216,7 +217,7 @@ grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config 2>/dev/null && ssh_conf=
 cd ~/.ssh
 ssh_config="$(cat rbs)"
 ! $use_ssh && bashrc="$(cat .bashrc)" && rm .bashrc || bashrc=""
-fifo="$(mktemp -u -t .XXXXXXXXXXX)"
+fifo="$(mktemp -u)"
 trap "rm -f $fifo ~/.ssh/.bashrc;> ~/.ssh/rbs" EXIT
 
 localcmd() {
@@ -233,7 +234,8 @@ serve() {
   # use coproc to kill $ttyserver shell/ssh on remote disconnect
   
   [ "$bashrc" ] && printf '%s' "$bashrc" >.bashrc
-  (umask 0077;mkfifo $fifo) || exit 1
+  rm -f $fifo
+  mkfifo $fifo || exit 1
   $ssh_proxy && {
     $use_ssh && coproc PROD { exec ssh $ttysrvname $ssh_conf <$fifo; } \
              || coproc PROD { exec bash .bashrc <$fifo; } 
