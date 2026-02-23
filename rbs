@@ -219,6 +219,7 @@ EOF
   export remotename ttysrvname always use_ssh ssh_proxy use_expect
   _rbs_post=1 exec bash <$0
 }
+unset _rbs_post
 grep -q "^[[:space:]]*Include ~/.ssh/rbs" ~/.ssh/config 2>/dev/null && ssh_conf='' || ssh_conf='-F rbs'
 cd ~/.ssh
 ssh_config="$(cat rbs)"
@@ -267,11 +268,6 @@ serve_always() {
   done
 }
 
-$always && {
-  serve_always
-  exit
-}
-
 cleanup() {
   trap - INT TERM
   echo "Cleaning up..." >&2
@@ -284,4 +280,11 @@ cleanup() {
 }
 
 trap cleanup INT TERM
+
+$always && {
+  serve_always
+  exit
+}
+
+
 serve 
