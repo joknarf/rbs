@@ -97,10 +97,11 @@ remote$ rbsprox <anyhost>
 ## Tunnel
 
 on a server forward local/remote port and serve it on remote host.
+(as no flow control, the forwarded port is directly connected, so must use it before the server times out)
 ```
-local$ rbstun -r remote:4444 -f localhost:22
-remote$ ssh localhost -p 4444
-=> connect to "local" from remote
+local$ rbsprox -r remote
+remote$ mysql -S $(rbxprox targethost:3306) 
+=> mysql connect to "targethost" port 3306 from remote
 ```
 
 ## Concepts
